@@ -1,3 +1,4 @@
+# Build artifacts
 *.o
 *.so
 *.pyc
@@ -6,15 +7,20 @@ build/
 dist/
 *.egg-info/
 *.egg-info
+rin_test
+rin_demo
+librin.so
+
+# Auxiliary datasets and large directories (not part of source)
+docs/
+benchmarks/
+models/
+archive/
+old/
+energy_comparison_*/
+
+# Misc
 thor_tiny_spgm.bin
 thor_big_*.bin
 tiny_gpt.rin
 .RIN_*
-rin_test
-rin_demo
-docs/
-benchmarks/
-models/
-scripts/
-archive/
-energy_comparison_*/
