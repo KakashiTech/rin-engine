@@ -1,0 +1,35 @@
+# Roadmap
+
+## Sprint 1 — Reproducibility (Days 1-30)
+
+- [x] Reproducible benchmark script (`bench-all.sh`)
+- [x] Clean repo organization (stable/experimental/docs)
+- [x] Honest README with verified claims only
+- [ ] CI/CD with GitHub Actions publishing benchmark results
+- [ ] Docker image with THOR pre-compiled
+- [ ] Third-party: invite 3 engineers to run `bench-all.sh`
+
+## Sprint 2 — Real-world demo (Days 31-60)
+
+- [ ] Train tiny-gpt-124M on real data (The Pile sample)
+- [ ] Export to .rin + publish on HuggingFace
+- [ ] Meaningful text generation demo
+- [ ] Raspberry Pi 4 benchmark and demo
+- [ ] `thor run` end-to-end working with downloaded model
+
+## Sprint 3 — External validation (Days 61-90)
+
+- [ ] Publish third-party benchmark results
+- [ ] Fix Python/C weight format compatibility
+- [ ] Lock CPU frequency for reproducible benchmarks
+- [ ] Add `--json` flag to `thor bench` for CI
+- [ ] Open issues for community reproduction
+- [ ] Move 1-2 experimental components to stable based on validation
+
+## Future
+
+- [ ] WebAssembly demo page with `thor_wasm_*` kernels
+- [ ] `thor chat` interactive mode
+- [ ] ARM NEON runtime detection and kernel selection
+- [ ] Power budget controller integration
+- [ ] Model hub (`thor pull model-name`)

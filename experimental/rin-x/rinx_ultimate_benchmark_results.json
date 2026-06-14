@@ -1,0 +1,70 @@
+{
+  "Tiny": {
+    "config": {
+      "name": "Tiny",
+      "input_dim": 784,
+      "hidden_dim": 64,
+      "output_dim": 10,
+      "num_layers": 2,
+      "batch_size": 1
+    },
+    "mlp_params": 55050,
+    "rin_params": 54912,
+    "pytorch_ms": 0.039314533303998665,
+    "pytorch_std": 0.013952125068479164,
+    "torch_compile_ms": 0.0606813000179803,
+    "onnx_ms": 0.018164766674999555,
+    "rinx_ms": 0.20702640003946726
+  },
+  "Small": {
+    "config": {
+      "name": "Small",
+      "input_dim": 784,
+      "hidden_dim": 256,
+      "output_dim": 10,
+      "num_layers": 4,
+      "batch_size": 1
+    },
+    "mlp_params": 400906,
+    "rin_params": 399872,
+    "pytorch_ms": 0.10413720000694109,
+    "pytorch_std": 0.016514949372066764,
+    "torch_compile_ms": 0.13518203334873155,
+    "onnx_ms": 0.04203383334697719,
+    "rinx_ms": 0.8210775000179638
+  },
+  "Medium": {
+    "config": {
+      "name": "Medium",
+      "input_dim": 784,
+      "hidden_dim": 512,
+      "output_dim": 10,
+      "num_layers": 8,
+      "batch_size": 1
+    },
+    "mlp_params": 2245642,
+    "rin_params": 2241536,
+    "pytorch_ms": 0.7164229999868136,
+    "pytorch_std": 0.22561703929955784,
+    "torch_compile_ms": 0.4081670999918667,
+    "onnx_ms": 0.08680413335090027,
+    "rinx_ms": 1.65994276666576
+  },
+  "Large": {
+    "config": {
+      "name": "Large",
+      "input_dim": 784,
+      "hidden_dim": 768,
+      "output_dim": 10,
+      "num_layers": 12,
+      "batch_size": 1
+    },
+    "mlp_params": 7107082,
+    "rin_params": 7097856,
+    "pytorch_ms": 1.8299923333643164,
+    "pytorch_std": 0.17070537955489695,
+    "torch_compile_ms": 1.4875102666792372,
+    "onnx_ms": 0.5785469666610273,
+    "rinx_ms": 3.9455783999907603
+  }
+}

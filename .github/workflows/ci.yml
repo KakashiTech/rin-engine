@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc make python3 python3-pip
+
+      - name: Build C library
+        run: make
+
+      - name: Run C test suite
+        run: make test
+
+      - name: Build shared library
+        run: make shared
+
+      - name: Install Python package
+        run: pip install -e .
+
+      - name: Verify CLI
+        run: thorin --version
+
+      - name: Benchmark (quick)
+        run: thorin bench --mode mlp --warmup 5 --iterations 10
+
+      - name: Check backend
+        run: python3 -c "from thor.runtime.engine import ThorEngine; print(ThorEngine.backend_name())"
+
+  lint:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint C with cppcheck
+        run: |
+          sudo apt-get install -y -qq cppcheck
+          cppcheck --enable=warning --suppress=unusedFunction --suppress=missingIncludeSystem --error-exitcode=1 rin_core.c thor_api.c _cengine.c main.c rin_test.c
+
+      - name: Lint Python with ruff
+        run: |
+          pip install -q ruff
+          ruff check thor/ --ignore=E501,E731 --quiet || true  # non-blocking until codebase is clean
