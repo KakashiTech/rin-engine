@@ -34,10 +34,10 @@ jobs:
         run: pip install -e .
 
       - name: Verify CLI
-        run: thorin --version
+        run: rin --version
 
       - name: Benchmark (quick)
-        run: thorin bench --mode mlp --warmup 5 --iterations 10
+        run: rin bench --mode mlp --warmup 5 --iterations 10
 
       - name: Check backend
         run: python3 -c "from thor.runtime.engine import ThorEngine; print(ThorEngine.backend_name())"

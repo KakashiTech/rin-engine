@@ -31,10 +31,10 @@ rin_core.o: rin_core.c rin_core.h rin_arena.h rin_dptm.h rin_lif_engine.h \
             rin_energy_meter.h rin_test_suite.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-thorin_api.o: thorin_api.c thorin_api.h rin_core.h
+rin_api.o: rin_api.c rin_api.h rin_core.h
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
-librin.so: thorin_api.o $(COMMON_OBJS)
+librin.so: rin_api.o $(COMMON_OBJS)
 	$(CC) -shared -o $@ $^ $(LDFLAGS)
 
 shared: librin.so

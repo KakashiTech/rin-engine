@@ -29,7 +29,7 @@ if all(os.path.isfile(s) for s in cengine_src):
         pass
     ext_modules.append(
         Extension(
-            "thorin._cengine",
+            "rin._cengine",
             cengine_src,
             include_dirs=[".", "lib/include", "lib/include/experimental"],
             extra_compile_args=[
@@ -49,9 +49,9 @@ if all(os.path.isfile(s) for s in cengine_src):
 # This is built separately via Makefile, not via setup.py
 
 setup(
-    name="thorin",
+    name="rin-engine",
     version="1.0.0",
-    description="THOR Neural Runtime - Universal Inference Engine",
+    description="RIN Engine Runtime - Universal Inference Engine",
     long_description=open("README.md").read() if os.path.exists("README.md") else "",
     long_description_content_type="text/markdown",
     author="THOR Team",
@@ -66,7 +66,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "thorin=thorin.cli.main:main",
+            "rin=rin.cli.main:main",
         ],
     },
     scripts=[],  # ensure scripts dir is created

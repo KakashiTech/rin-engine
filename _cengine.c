@@ -1,7 +1,7 @@
 #include <Python.h>
 #include <structmember.h>
-#include "thorin_api.h"
-#include "thorin/backends/thorin_backend.h"
+#include "rin_api.h"
+#include "rin/backends/rin_backend.h"
 
 /* ------------------------------------------------------------------ */
 /*  Exception                                                        */
@@ -512,7 +512,7 @@ static PyMethodDef module_methods[] = {
 static struct PyModuleDef _cengine_module = {
     PyModuleDef_HEAD_INIT,
     .m_name     = "_cengine",
-    .m_doc      = "Native CPython extension for the THORIN runtime.",
+    .m_doc      = "Native CPython extension for the RIN Engine runtime.",
     .m_size     = -1,
     .m_methods  = module_methods,
 };

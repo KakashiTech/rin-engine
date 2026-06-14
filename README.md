@@ -1,27 +1,27 @@
-# THORIN — Experimental Neural Inference Runtime
+# RIN Engine — Experimental Neural Inference Runtime
 
 **Deterministic memory allocation, energy measurement, and CPU inference without GPU.**
 
-THORIN is an experimental C runtime + Python CLI for running neural network inference on CPU. It explores techniques for energy-efficient computation: arena allocation (zero malloc during inference), RAPL-based energy metering, and alternative normalization/softmax implementations using integer arithmetic.
+RIN Engine is an experimental C runtime + Python CLI for running neural network inference on CPU. It explores techniques for energy-efficient computation: arena allocation (zero malloc during inference), RAPL-based energy metering, and alternative normalization/softmax implementations using integer arithmetic.
 
-[![CI](https://github.com/thor-ai/thorinin/actions/workflows/ci.yml/badge.svg)](https://github.com/thor-ai/thorinin/actions/workflows/ci.yml)
+[![CI](https://github.com/thor-ai/rinin/actions/workflows/ci.yml/badge.svg)](https://github.com/thor-ai/rinin/actions/workflows/ci.yml)
 
 ---
 
 ## Quick start
 
 ```bash
-git clone https://github.com/thor-ai/thorinin.git
+git clone https://github.com/thor-ai/rinin.git
 cd thor
 make shared
 pip install -e .
-thorin bench --mode transformer
+rin bench --mode transformer
 ```
 
 If you have a `.rin` model:
 
 ```bash
-thorin run model.rin --prompt "Hello, world!" --max-tokens 50
+rin run model.rin --prompt "Hello, world!" --max-tokens 50
 ```
 
 ---
@@ -32,8 +32,8 @@ thorin run model.rin --prompt "Hello, world!" --max-tokens 50
 |-----------|-------------|------|
 | **Arena allocator** | O(1) allocation, O(1) reset, zero malloc/free during inference | `rin_arena.h` |
 | **RAPL energy meter** | Per-inference energy measurement via Intel/AMD RAPL MSRs | `rin_energy_meter.h` |
-| **5 inference modes** | MLP, SNN, ATTN, THOR, Transformer | `thorin run --mode` |
-| **Python CLI** | `thor {run,bench,energy,inspect,import}` | `thorin/` |
+| **5 inference modes** | MLP, SNN, ATTN, THOR, Transformer | `rin run --mode` |
+| **Python CLI** | `thor {run,bench,energy,inspect,import}` | `rin/` |
 | **C test suite** | 8 quantitative validation tests, 0 failures | `make test` |
 | **Backend router** | Auto-selects native CPython ext → ctypes fallback | `thor/_backend.py` |
 
@@ -73,11 +73,11 @@ These components are implemented but **not independently validated**:
 ## CLI reference
 
 ```bash
-thorin run model.rin --prompt "Hello" --max-tokens 100
-thorin bench model.rin --mode transformer
-thorin energy model.rin
-thorin inspect model.rin
-thorin import model.pth --output model.rin
+rin run model.rin --prompt "Hello" --max-tokens 100
+rin bench model.rin --mode transformer
+rin energy model.rin
+rin inspect model.rin
+rin import model.pth --output model.rin
 ```
 
 ---
@@ -85,7 +85,7 @@ thorin import model.pth --output model.rin
 ## Python API
 
 ```python
-from thorin import ThorEngine
+from rin import ThorEngine
 
 with ThorEngine("model.rin", mode="mlp") as engine:
     output = engine.generate("Hello", max_tokens=50)

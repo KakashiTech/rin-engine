@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# bench-all.sh — Reproducible THORIN benchmark suite
+# bench-all.sh — Reproducible RIN Engine benchmark suite
 #
 # Usage:
 #   ./bench-all.sh              # full benchmark
@@ -8,7 +8,7 @@
 #   ./bench-all.sh --json       # output as JSON
 #
 # Requirements:
-#   - THORIN built and pip install -e . done
+#   - RIN Engine built and pip install -e . done
 #   - onnxruntime (pip install onnxruntime) for ONNX baseline
 #
 # Output: prints comparison table and saves to bench-result-*.txt
@@ -31,7 +31,7 @@ fi
 
 # ----- Check model files -----
 if [ ! -f "$MODEL" ]; then
-    echo "ERROR: THORIN model not found: $MODEL"
+    echo "ERROR: RIN Engine model not found: $MODEL"
     echo "Train one with: python scripts/train_tiny_gpt.py"
     exit 1
 fi
@@ -39,27 +39,27 @@ fi
 # ----- Detect hardware -----
 CPU_MODEL=$(grep "model name" /proc/cpuinfo | head -1 | sed 's/.*: //')
 CPU_COUNT=$(nproc)
-THOR_VERSION=$(python3 -c "from thorinin.runtime.engine import ThorEngine; print(ThorEngine.version())" 2>/dev/null || echo "unknown")
+THOR_VERSION=$(python3 -c "from rinin.runtime.engine import ThorEngine; print(ThorEngine.version())" 2>/dev/null || echo "unknown")
 
 echo "============================================="
-echo " THORIN Benchmark Suite"
+echo " RIN Engine Benchmark Suite"
 echo "============================================="
 echo " Date:       $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo " Host:       $(hostname)"
 echo " CPU:        $CPU_MODEL"
 echo " Cores:      $CPU_COUNT"
-echo " THORIN ver:   $THOR_VERSION"
+echo " RIN Engine ver:   $THOR_VERSION"
 echo " Model:      $MODEL"
 echo " Iterations: $ITERATIONS"
 echo "============================================="
 echo ""
 
-# ----- 1. THORIN inference benchmark (Python API) -----
-echo "[1] THORIN INT8 (Python API) ..."
+# ----- 1. RIN Engine inference benchmark (Python API) -----
+echo "[1] RIN Engine INT8 (Python API) ..."
 THOR_TPS=$(python3 -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
-from thorinin.runtime.engine import ThorEngine
+from rinin.runtime.engine import ThorEngine
 
 eng = ThorEngine('$MODEL', mode='transformer')
 try:
@@ -71,7 +71,7 @@ finally:
 THOR_MS=$(python3 -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
-from thorinin.runtime.engine import ThorEngine
+from rinin.runtime.engine import ThorEngine
 
 eng = ThorEngine('$MODEL', mode='transformer')
 try:
@@ -82,12 +82,12 @@ finally:
 " 2>&1)
 echo "   $THOR_TPS tok/s  ($THOR_MS ms/tok)"
 
-# ----- 2. THORIN energy measurement -----
-echo "[2] THORIN INT8 energy ..."
+# ----- 2. RIN Engine energy measurement -----
+echo "[2] RIN Engine INT8 energy ..."
 THOR_ENERGY=$(python3 -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
-from thorinin.runtime.engine import ThorEngine
+from rinin.runtime.engine import ThorEngine
 
 eng = ThorEngine('$MODEL', mode='transformer')
 try:
@@ -160,7 +160,7 @@ echo " RESULTS"
 echo "============================================="
 printf " %-25s %12s %12s\n" "Backend" "tok/s" "ms/tok"
 printf " %-25s %12s %12s\n" "-------------------------" "------------" "-----------"
-printf " %-25s %12s %12s\n" "THORIN INT8" "$THOR_TPS" "$THOR_MS ms"
+printf " %-25s %12s %12s\n" "RIN Engine INT8" "$THOR_TPS" "$THOR_MS ms"
 
 if [ "$ONNX_OK" -eq 1 ]; then
     printf " %-25s %12s %12s\n" "ONNX FP32" "$ONNX_TPS" "$ONNX_MS ms"

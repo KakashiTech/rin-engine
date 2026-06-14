@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel", "numpy"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "thorin"
+name = "rin-engine"
 version = "1.0.0"
-description = "THORIN - Experimental Neural Inference Runtime"
+description = "RIN Engine - Experimental Neural Inference Runtime"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "THOR Team"}]
@@ -13,7 +13,7 @@ requires-python = ">=3.8"
 dependencies = ["numpy"]
 
 [project.urls]
-Source = "https://github.com/thor-ai/thorin"
+Source = "https://github.com/KakashiTech/rin-engine"
 
 [project.scripts]
-thorin = "thorin.cli.main:main"
+rin = "rin.cli.main:main"
