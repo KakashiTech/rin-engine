@@ -6,23 +6,23 @@
 /* ------------------------------------------------------------------ */
 /*  Exception                                                        */
 /* ------------------------------------------------------------------ */
-static PyObject *ThorException;
+static PyObject *RinException;
 
 /* ------------------------------------------------------------------ */
-/*  ThorContext : Python object wrapping ThorContext*                 */
+/*  RinContext : Python object wrapping RinContext*                 */
 /* ------------------------------------------------------------------ */
 typedef struct {
     PyObject_HEAD
     ThorContext *ctx;
     int          closed;
-} PyThorContext;
+} PyRinContext;
 
 static int
-PyThorContext_init(PyThorContext *self, PyObject *args, PyObject *kwds)
+PyRinContext_init(PyRinContext *self, PyObject *args, PyObject *kwds)
 {
     self->ctx = thor_create();
     if (!self->ctx) {
-        PyErr_SetString(ThorException, "thor_create() returned NULL");
+        PyErr_SetString(RinException, "thor_create() returned NULL");
         return -1;
     }
     self->closed = 0;
@@ -30,7 +30,7 @@ PyThorContext_init(PyThorContext *self, PyObject *args, PyObject *kwds)
 }
 
 static void
-PyThorContext_dealloc(PyThorContext *self)
+PyRinContext_dealloc(PyRinContext *self)
 {
     if (self->ctx && !self->closed) {
         thor_destroy(self->ctx);
@@ -41,12 +41,12 @@ PyThorContext_dealloc(PyThorContext *self)
 
 /* load_model(self, path: str) -> None */
 static PyObject *
-PyThorContext_load_model(PyThorContext *self, PyObject *arg)
+PyRinContext_load_model(PyRinContext *self, PyObject *arg)
 {
     const char *path;
 
     if (self->closed || !self->ctx) {
-        PyErr_SetString(ThorException, "context is closed");
+        PyErr_SetString(RinException, "context is closed");
         return NULL;
     }
     if (!PyArg_Parse(arg, "s", &path))
@@ -54,7 +54,7 @@ PyThorContext_load_model(PyThorContext *self, PyObject *arg)
 
     ThorStatus st = thor_load_model(self->ctx, path);
     if (st != THOR_OK) {
-        PyErr_Format(ThorException, "thor_load_model(%s) failed: %d", path, st);
+        PyErr_Format(RinException, "thor_load_model(%s) failed: %d", path, st);
         return NULL;
     }
     Py_RETURN_NONE;
@@ -62,17 +62,17 @@ PyThorContext_load_model(PyThorContext *self, PyObject *arg)
 
 /* get_model_info(self) -> dict */
 static PyObject *
-PyThorContext_get_model_info(PyThorContext *self, PyObject *Py_UNUSED(ignored))
+PyRinContext_get_model_info(PyRinContext *self, PyObject *Py_UNUSED(ignored))
 {
     ThorModelInfo info;
 
     if (self->closed || !self->ctx) {
-        PyErr_SetString(ThorException, "context is closed");
+        PyErr_SetString(RinException, "context is closed");
         return NULL;
     }
     ThorStatus st = thor_get_model_info(self->ctx, &info);
     if (st != THOR_OK) {
-        PyErr_Format(ThorException, "thor_get_model_info failed: %d", st);
+        PyErr_Format(RinException, "thor_get_model_info failed: %d", st);
         return NULL;
     }
     return Py_BuildValue("{s:I,s:I,s:I,s:I,s:I,s:I,s:I,s:I,s:f}",
@@ -89,7 +89,7 @@ PyThorContext_get_model_info(PyThorContext *self, PyObject *Py_UNUSED(ignored))
 
 /* mode property getter/setter */
 static PyObject *
-PyThorContext_get_mode(PyThorContext *self, void *closure)
+PyRinContext_get_mode(PyRinContext *self, void *closure)
 {
     (void)closure;
     if (self->closed || !self->ctx) {
@@ -99,11 +99,11 @@ PyThorContext_get_mode(PyThorContext *self, void *closure)
 }
 
 static int
-PyThorContext_set_mode(PyThorContext *self, PyObject *value, void *closure)
+PyRinContext_set_mode(PyRinContext *self, PyObject *value, void *closure)
 {
     (void)closure;
     if (self->closed || !self->ctx) {
-        PyErr_SetString(ThorException, "context is closed");
+        PyErr_SetString(RinException, "context is closed");
         return -1;
     }
     if (!PyLong_Check(value)) {
@@ -116,7 +116,7 @@ PyThorContext_set_mode(PyThorContext *self, PyObject *value, void *closure)
 
 /* sampling params */
 static PyObject *
-PyThorContext_set_temperature(PyThorContext *self, PyObject *arg)
+PyRinContext_set_temperature(PyRinContext *self, PyObject *arg)
 {
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
     float v = (float)PyFloat_AsDouble(arg);
@@ -126,7 +126,7 @@ PyThorContext_set_temperature(PyThorContext *self, PyObject *arg)
 }
 
 static PyObject *
-PyThorContext_set_top_k(PyThorContext *self, PyObject *arg)
+PyRinContext_set_top_k(PyRinContext *self, PyObject *arg)
 {
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
     uint32_t v = (uint32_t)PyLong_AsLong(arg);
@@ -136,7 +136,7 @@ PyThorContext_set_top_k(PyThorContext *self, PyObject *arg)
 }
 
 static PyObject *
-PyThorContext_set_top_p(PyThorContext *self, PyObject *arg)
+PyRinContext_set_top_p(PyRinContext *self, PyObject *arg)
 {
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
     float v = (float)PyFloat_AsDouble(arg);
@@ -146,7 +146,7 @@ PyThorContext_set_top_p(PyThorContext *self, PyObject *arg)
 }
 
 static PyObject *
-PyThorContext_set_power_budget(PyThorContext *self, PyObject *arg)
+PyRinContext_set_power_budget(PyRinContext *self, PyObject *arg)
 {
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
     float v = (float)PyFloat_AsDouble(arg);
@@ -157,14 +157,14 @@ PyThorContext_set_power_budget(PyThorContext *self, PyObject *arg)
 
 /* infer(self, input_ids: list, max_output: int = 1) -> dict */
 static PyObject *
-PyThorContext_infer(PyThorContext *self, PyObject *args, PyObject *kwds)
+PyRinContext_infer(PyRinContext *self, PyObject *args, PyObject *kwds)
 {
     static char *kwlist[] = {"input_ids", "max_output", NULL};
     PyObject    *input_list;
     uint32_t     max_output = 1;
 
     if (self->closed || !self->ctx) {
-        PyErr_SetString(ThorException, "context is closed");
+        PyErr_SetString(RinException, "context is closed");
         return NULL;
     }
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!|I", kwlist,
@@ -190,7 +190,7 @@ PyThorContext_infer(PyThorContext *self, PyObject *args, PyObject *kwds)
     PyMem_Free(ids);
 
     if (st != THOR_OK) {
-        PyErr_Format(ThorException, "thor_infer failed: %d", st);
+        PyErr_Format(RinException, "thor_infer failed: %d", st);
         return NULL;
     }
 
@@ -216,12 +216,12 @@ PyThorContext_infer(PyThorContext *self, PyObject *args, PyObject *kwds)
 
 /* encode(self, text: str) -> list */
 static PyObject *
-PyThorContext_encode(PyThorContext *self, PyObject *arg)
+PyRinContext_encode(PyRinContext *self, PyObject *arg)
 {
     const char *text;
 
     if (self->closed || !self->ctx) {
-        PyErr_SetString(ThorException, "context is closed");
+        PyErr_SetString(RinException, "context is closed");
         return NULL;
     }
     if (!PyArg_Parse(arg, "s", &text))
@@ -234,7 +234,7 @@ PyThorContext_encode(PyThorContext *self, PyObject *arg)
     int n = thor_encode(self->ctx, text, ids, max_ids);
     if (n < 0) {
         PyMem_Free(ids);
-        PyErr_Format(ThorException, "thor_encode failed: %d", n);
+        PyErr_Format(RinException, "thor_encode failed: %d", n);
         return NULL;
     }
 
@@ -249,10 +249,10 @@ PyThorContext_encode(PyThorContext *self, PyObject *arg)
 
 /* decode(self, ids: list) -> str */
 static PyObject *
-PyThorContext_decode(PyThorContext *self, PyObject *arg)
+PyRinContext_decode(PyRinContext *self, PyObject *arg)
 {
     if (self->closed || !self->ctx) {
-        PyErr_SetString(ThorException, "context is closed");
+        PyErr_SetString(RinException, "context is closed");
         return NULL;
     }
 
@@ -288,16 +288,16 @@ PyThorContext_decode(PyThorContext *self, PyObject *arg)
 
 /* get_charset(self) -> str */
 static PyObject *
-PyThorContext_get_charset(PyThorContext *self, PyObject *Py_UNUSED(ignored))
+PyRinContext_get_charset(PyRinContext *self, PyObject *Py_UNUSED(ignored))
 {
     if (self->closed || !self->ctx) {
-        PyErr_SetString(ThorException, "context is closed");
+        PyErr_SetString(RinException, "context is closed");
         return NULL;
     }
     int vocab_size = 0;
     const char *charset = thor_get_charset(self->ctx, &vocab_size);
     if (!charset) {
-        PyErr_SetString(ThorException, "thor_get_charset returned NULL");
+        PyErr_SetString(RinException, "thor_get_charset returned NULL");
         return NULL;
     }
     return PyUnicode_FromString(charset);
@@ -305,7 +305,7 @@ PyThorContext_get_charset(PyThorContext *self, PyObject *Py_UNUSED(ignored))
 
 /* energy properties */
 static PyObject *
-PyThorContext_get_energy_joules(PyThorContext *self, void *closure)
+PyRinContext_get_energy_joules(PyRinContext *self, void *closure)
 {
     (void)closure;
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
@@ -313,7 +313,7 @@ PyThorContext_get_energy_joules(PyThorContext *self, void *closure)
 }
 
 static PyObject *
-PyThorContext_get_energy_millijoules(PyThorContext *self, void *closure)
+PyRinContext_get_energy_millijoules(PyRinContext *self, void *closure)
 {
     (void)closure;
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
@@ -321,7 +321,7 @@ PyThorContext_get_energy_millijoules(PyThorContext *self, void *closure)
 }
 
 static PyObject *
-PyThorContext_get_inference_count(PyThorContext *self, void *closure)
+PyRinContext_get_inference_count(PyRinContext *self, void *closure)
 {
     (void)closure;
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
@@ -329,7 +329,7 @@ PyThorContext_get_inference_count(PyThorContext *self, void *closure)
 }
 
 static PyObject *
-PyThorContext_get_total_tokens(PyThorContext *self, void *closure)
+PyRinContext_get_total_tokens(PyRinContext *self, void *closure)
 {
     (void)closure;
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
@@ -338,14 +338,14 @@ PyThorContext_get_total_tokens(PyThorContext *self, void *closure)
 
 /* profile(self, mode, warmup, iterations) -> (ms/tok, tok/s) */
 static PyObject *
-PyThorContext_profile(PyThorContext *self, PyObject *args, PyObject *kwds)
+PyRinContext_profile(PyRinContext *self, PyObject *args, PyObject *kwds)
 {
     static char *kwlist[] = {"mode", "warmup", "iterations", NULL};
     int mode = 0;
     uint32_t warmup = 10, iterations = 100;
 
     if (self->closed || !self->ctx) {
-        PyErr_SetString(ThorException, "context is closed");
+        PyErr_SetString(RinException, "context is closed");
         return NULL;
     }
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "I|II", kwlist,
@@ -357,7 +357,7 @@ PyThorContext_profile(PyThorContext *self, PyObject *args, PyObject *kwds)
         self->ctx, (ThorMode)mode, warmup, iterations,
         &ms_per_tok, &toks_per_sec);
     if (st != THOR_OK) {
-        PyErr_Format(ThorException, "thor_profile failed: %d", st);
+        PyErr_Format(RinException, "thor_profile failed: %d", st);
         return NULL;
     }
     return Py_BuildValue("(dd)", ms_per_tok, toks_per_sec);
@@ -365,7 +365,7 @@ PyThorContext_profile(PyThorContext *self, PyObject *args, PyObject *kwds)
 
 /* close(self) -> None  (explicit cleanup) */
 static PyObject *
-PyThorContext_close(PyThorContext *self, PyObject *Py_UNUSED(ignored))
+PyRinContext_close(PyRinContext *self, PyObject *Py_UNUSED(ignored))
 {
     if (self->ctx && !self->closed) {
         thor_destroy(self->ctx);
@@ -376,77 +376,77 @@ PyThorContext_close(PyThorContext *self, PyObject *Py_UNUSED(ignored))
 }
 
 /* Methods table */
-static PyMethodDef PyThorContext_methods[] = {
+static PyMethodDef PyRinContext_methods[] = {
     {"close",
-     (PyCFunction)PyThorContext_close, METH_NOARGS,
+     (PyCFunction)PyRinContext_close, METH_NOARGS,
      "close() -> None\nExplicitly release the C context."},
     {"load_model",
-     (PyCFunction)PyThorContext_load_model, METH_O,
+     (PyCFunction)PyRinContext_load_model, METH_O,
      "load_model(path) -> None\nLoad a model file."},
     {"get_model_info",
-     (PyCFunction)PyThorContext_get_model_info, METH_NOARGS,
+     (PyCFunction)PyRinContext_get_model_info, METH_NOARGS,
      "get_model_info() -> dict\nReturn model metadata."},
     {"infer",
-     (PyCFunction)PyThorContext_infer, METH_VARARGS | METH_KEYWORDS,
+     (PyCFunction)PyRinContext_infer, METH_VARARGS | METH_KEYWORDS,
      "infer(input_ids, max_output=1) -> dict\nRun inference."},
     {"encode",
-     (PyCFunction)PyThorContext_encode, METH_O,
+     (PyCFunction)PyRinContext_encode, METH_O,
      "encode(text) -> list\nTokenize text."},
     {"decode",
-     (PyCFunction)PyThorContext_decode, METH_O,
+     (PyCFunction)PyRinContext_decode, METH_O,
      "decode(ids) -> str\nDecode token IDs to text."},
     {"get_charset",
-     (PyCFunction)PyThorContext_get_charset, METH_NOARGS,
+     (PyCFunction)PyRinContext_get_charset, METH_NOARGS,
      "get_charset() -> str\nReturn the model's character set."},
     {"set_temperature",
-     (PyCFunction)PyThorContext_set_temperature, METH_O,
+     (PyCFunction)PyRinContext_set_temperature, METH_O,
      "set_temperature(temp) -> None"},
     {"set_top_k",
-     (PyCFunction)PyThorContext_set_top_k, METH_O,
+     (PyCFunction)PyRinContext_set_top_k, METH_O,
      "set_top_k(k) -> None"},
     {"set_top_p",
-     (PyCFunction)PyThorContext_set_top_p, METH_O,
+     (PyCFunction)PyRinContext_set_top_p, METH_O,
      "set_top_p(p) -> None"},
     {"set_power_budget",
-     (PyCFunction)PyThorContext_set_power_budget, METH_O,
+     (PyCFunction)PyRinContext_set_power_budget, METH_O,
      "set_power_budget(watts) -> None"},
     {"profile",
-     (PyCFunction)PyThorContext_profile, METH_VARARGS | METH_KEYWORDS,
+     (PyCFunction)PyRinContext_profile, METH_VARARGS | METH_KEYWORDS,
      "profile(mode, warmup=10, iterations=100) -> (ms_per_tok, tok_per_sec)"},
     {NULL, NULL, 0, NULL}
 };
 
 /* Getters / setters */
-static PyGetSetDef PyThorContext_getset[] = {
+static PyGetSetDef PyRinContext_getset[] = {
     {"mode",
-     (getter)PyThorContext_get_mode, (setter)PyThorContext_set_mode,
+     (getter)PyRinContext_get_mode, (setter)PyRinContext_set_mode,
      "Inference mode (integer).", NULL},
     {"energy_joules",
-     (getter)PyThorContext_get_energy_joules, NULL,
+     (getter)PyRinContext_get_energy_joules, NULL,
      "Accumulated energy in joules.", NULL},
     {"energy_millijoules",
-     (getter)PyThorContext_get_energy_millijoules, NULL,
+     (getter)PyRinContext_get_energy_millijoules, NULL,
      "Accumulated energy in millijoules.", NULL},
     {"inference_count",
-     (getter)PyThorContext_get_inference_count, NULL,
+     (getter)PyRinContext_get_inference_count, NULL,
      "Total inference calls.", NULL},
     {"total_tokens",
-     (getter)PyThorContext_get_total_tokens, NULL,
+     (getter)PyRinContext_get_total_tokens, NULL,
      "Total tokens processed.", NULL},
     {NULL, NULL, NULL, NULL, NULL}
 };
 
-static PyTypeObject PyThorContextType = {
+static PyTypeObject PyRinContextType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name      = "_cengine.ThorContext",
-    .tp_basicsize = sizeof(PyThorContext),
+    .tp_name      = "_cengine.RinContext",
+    .tp_basicsize = sizeof(PyRinContext),
     .tp_itemsize  = 0,
-    .tp_dealloc   = (destructor)PyThorContext_dealloc,
+    .tp_dealloc   = (destructor)PyRinContext_dealloc,
     .tp_flags     = Py_TPFLAGS_DEFAULT,
-    .tp_doc       = "THOR Runtime Context",
-    .tp_methods   = PyThorContext_methods,
-    .tp_getset    = PyThorContext_getset,
-    .tp_init      = (initproc)PyThorContext_init,
+    .tp_doc       = "RIN Engine Context",
+    .tp_methods   = PyRinContext_methods,
+    .tp_getset    = PyRinContext_getset,
+    .tp_init      = (initproc)PyRinContext_init,
     .tp_new       = PyType_GenericNew,
 };
 
@@ -474,7 +474,7 @@ static PyObject *
 module_best_backend(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     (void)self;
-    return PyUnicode_FromString(thor_best_backend());
+    return PyUnicode_FromString(rin_best_backend());
 }
 
 static PyObject *
@@ -493,7 +493,7 @@ module_wasm_available(PyObject *self, PyObject *Py_UNUSED(ignored))
 
 static PyMethodDef module_methods[] = {
     {"version",           module_version,           METH_NOARGS,
-     "Return the THOR C library version string."},
+     "Return the RIN C library version string."},
     {"version_numbers",   module_version_numbers,   METH_NOARGS,
      "Return (major, minor, patch)."},
     {"best_backend",      module_best_backend,      METH_NOARGS,
@@ -520,25 +520,25 @@ static struct PyModuleDef _cengine_module = {
 PyMODINIT_FUNC
 PyInit__cengine(void)
 {
-    if (PyType_Ready(&PyThorContextType) < 0)
+    if (PyType_Ready(&PyRinContextType) < 0)
         return NULL;
 
     PyObject *m = PyModule_Create(&_cengine_module);
     if (!m) return NULL;
 
-    Py_INCREF(&PyThorContextType);
-    if (PyModule_AddObject(m, "ThorContext",
-                           (PyObject *)&PyThorContextType) < 0) {
-        Py_DECREF(&PyThorContextType);
+    Py_INCREF(&PyRinContextType);
+    if (PyModule_AddObject(m, "RinContext",
+                           (PyObject *)&PyRinContextType) < 0) {
+        Py_DECREF(&PyRinContextType);
         Py_DECREF(m);
         return NULL;
     }
 
     /* Exception */
-    ThorException = PyErr_NewException("_cengine.ThorException",
+    RinException = PyErr_NewException("_cengine.RinException",
                                        PyExc_RuntimeError, NULL);
-    if (PyModule_AddObject(m, "ThorException", ThorException) < 0) {
-        Py_DECREF(ThorException);
+    if (PyModule_AddObject(m, "RinException", RinException) < 0) {
+        Py_DECREF(RinException);
         Py_DECREF(m);
         return NULL;
     }

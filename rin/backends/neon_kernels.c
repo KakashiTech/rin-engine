@@ -1,4 +1,4 @@
-/* ARM NEON-optimised kernels for THOR inference.
+/* ARM NEON kernels for RIN inference.
  *
  * Compile with:  -O3 -march=armv8-a+simd -DTHOR_NEON
  *

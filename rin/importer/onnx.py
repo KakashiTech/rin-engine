@@ -1,6 +1,6 @@
-"""ONNX model converter for the THOR format.
+"""ONNX model converter for the RIN format.
 
-Extracts weight tensors from ONNX initialisers and builds a ``ThorGraph``.
+Extracts weight tensors from ONNX initialisers and builds a ``RinGraph``.
 """
 
 from __future__ import annotations
@@ -31,8 +31,8 @@ def _import_onnx():
 def convert_onnx_model(
     model_path: Union[str, Path],
     output_path: Optional[Union[str, Path]] = None,
-) -> "ThorGraph":
-    """Convert an ONNX model to THOR format.
+) -> "RinGraph":
+    """Convert an ONNX model to RIN format.
 
     Parameters
     ----------
@@ -43,7 +43,7 @@ def convert_onnx_model(
 
     Returns
     -------
-    ThorGraph
+    RinGraph
         Populated graph ready for serialisation.
     """
     onnx, numpy_helper = _import_onnx()
@@ -64,10 +64,10 @@ def convert_onnx_model(
     # -- try to detect architecture from graph structure ------------------
     arch, meta = _detect_onnx_architecture(graph_proto, initializers)
 
-    # -- build ThorGraph --------------------------------------------------
-    from rin.importer.base import ThorGraph, WeightLayer
+    # -- build RinGraph --------------------------------------------------
+    from rin.importer.base import RinGraph, WeightLayer
 
-    graph = ThorGraph(meta)
+    graph = RinGraph(meta)
 
     if arch == "mlp":
         _populate_mlp(graph, graph_proto, initializers)
@@ -189,11 +189,11 @@ def _infer_max_seq_len(
 # ---------------------------------------------------------------------------
 
 def _populate_mlp(
-    graph: "ThorGraph",
+    graph: "RinGraph",
     graph_proto: Any,
     initializers: Dict[str, np.ndarray],
 ) -> None:
-    from rin.importer.base import ThorGraph as TG, WeightLayer
+    from rin.importer.base import RinGraph as TG, WeightLayer
 
     weight_nodes = [
         n for n in graph_proto.node if n.op_type in ("Gemm", "MatMul")
@@ -246,11 +246,11 @@ def _populate_mlp(
 # ---------------------------------------------------------------------------
 
 def _populate_transformer(
-    graph: "ThorGraph",
+    graph: "RinGraph",
     graph_proto: Any,
     initializers: Dict[str, np.ndarray],
 ) -> None:
-    from rin.importer.base import ThorGraph as TG, WeightLayer
+    from rin.importer.base import RinGraph as TG, WeightLayer
 
     processed: set = set()
 
@@ -341,10 +341,10 @@ def _populate_transformer(
 # ---------------------------------------------------------------------------
 
 def _populate_fallback(
-    graph: "ThorGraph",
+    graph: "RinGraph",
     initializers: Dict[str, np.ndarray],
 ) -> None:
-    from rin.importer.base import ThorGraph as TG, WeightLayer
+    from rin.importer.base import RinGraph as TG, WeightLayer
 
     for idx, (name, arr) in enumerate(initializers.items()):
         if arr.ndim != 2:

@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from rin.runtime import ThorEngine
+from rin.runtime import RinEngine
 
 BOLD = "\033[1m"
 GREEN = "\033[32m"
@@ -49,11 +49,11 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    print(f"{BOLD}THOR inspect{RESET}")
+    print(f"{BOLD}RIN inspect{RESET}")
     print(f"{DIM}Model: {args.model}{RESET}")
     print()
 
-    engine = ThorEngine()
+    engine = RinEngine()
     try:
         engine.load_model(args.model)
     except Exception as e:

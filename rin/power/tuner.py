@@ -3,10 +3,10 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List, Optional
 
-from rin._backend import ThorException as ThorError
+from rin._backend import RinException
 from rin._backend import MODE_MLP, MODE_SNN, MODE_ATTN, MODE_THOR, MODE_TRANSFORMER
 from rin.runtime.energy import EnergyMonitor
-from rin.runtime.engine import ThorEngine
+from rin.runtime.engine import RinEngine
 
 __all__ = ["PowerTuner"]
 
@@ -41,7 +41,7 @@ class PowerTuner:
     Automatically tunes inference parameters to meet a power budget.
 
     Strategy:
-    1. Profile each mode (MLP, SNN, ATTN, THOR, Transformer)
+    1. Profile each mode (MLP, SNN, ATTN, RIN, Transformer)
     2. Measure energy per token for each mode
     3. Adjust temperature, top-k, top-p to balance quality vs efficiency
     4. Recommend optimal mode + parameters for the power budget
@@ -53,7 +53,7 @@ class PowerTuner:
         engine.set_temperature(config['temperature'])
     """
 
-    def __init__(self, engine: ThorEngine) -> None:
+    def __init__(self, engine: RinEngine) -> None:
         self._engine = engine
         self._profile_cache: Dict[str, Dict[str, float]] = {}
 
@@ -68,12 +68,12 @@ class PowerTuner:
                     ept = self.energy_per_token(mode=mode_name, iterations=50)
                     self._profile_cache[mode_name] = {"energy_per_token": ept}
                     results.append({"mode": mode_name, "energy_per_token_joules": ept})
-                except ThorError as exc:
+                except RinException as exc:
                     results.append({"mode": mode_name, "error": str(exc)})
         finally:
             try:
                 self._engine.mode = original_mode
-            except ThorError:
+            except RinException:
                 pass
         return results
 
@@ -90,7 +90,7 @@ class PowerTuner:
         finally:
             try:
                 self._engine.mode = original_mode
-            except ThorError:
+            except RinException:
                 pass
 
     def recommend_mode(self, power_budget_watts: float) -> str:

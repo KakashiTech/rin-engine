@@ -32,7 +32,7 @@ rin run model.rin --prompt "Hello, world!" --max-tokens 50
 |-----------|-------------|------|
 | **Arena allocator** | O(1) allocation, O(1) reset, zero malloc/free during inference | `rin_arena.h` |
 | **RAPL energy meter** | Per-inference energy measurement via Intel/AMD RAPL MSRs | `rin_energy_meter.h` |
-| **5 inference modes** | MLP, SNN, ATTN, THOR, Transformer | `rin run --mode` |
+| **5 inference modes** | MLP, SNN, ATTN, RIN, Transformer | `rin run --mode` |
 | **Python CLI** | `thor {run,bench,energy,inspect,import}` | `rin/` |
 | **C test suite** | 8 quantitative validation tests, 0 failures | `make test` |
 | **Backend router** | Auto-selects native CPython ext → ctypes fallback | `thor/_backend.py` |
@@ -43,12 +43,12 @@ rin run model.rin --prompt "Hello, world!" --max-tokens 50
 
 Hardware: AMD Ryzen 5 5600G, DDR4-3200, GCC 15. Model: 4-layer, 262K params, INT8.
 
-| Comparison | THOR | ONNX | Ratio |
+| Comparison | RIN Engine | ONNX | Ratio |
 |-----------|------|------|-------|
 | Latency (µs/inf) | 202 | 783 (FP32) | **3.9× faster** |
 | Energy (µJ/pkg) | 5,654 | 28,510 (FP32) | **5.0× efficient** |
 
-> **Note:** THOR uses INT8 quantization while ONNX runs FP32. This is the current baseline. A direct INT8-vs-INT8 comparison requires an INT8-capable ONNX Runtime build (ortextensions or onnxruntime-trt) — will be added in a future release.
+> **Note:** RIN Engine uses INT8 quantization while ONNX runs FP32. This is the current baseline. A direct INT8-vs-INT8 comparison requires an INT8-capable ONNX Runtime build (ortextensions or onnxruntime-trt) — will be added in a future release.
 
 ---
 

@@ -1,4 +1,4 @@
-"""THOR backends — unified SIMD backend detection and auto-routing.
+"""RIN backends — unified SIMD backend detection and auto-routing.
 
 Usage:
     from rin.backends import best_backend, detect, summary

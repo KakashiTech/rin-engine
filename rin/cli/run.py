@@ -12,7 +12,7 @@ import argparse
 import sys
 import time
 
-from rin.runtime import ThorEngine
+from rin.runtime import RinEngine
 
 BOLD = "\033[1m"
 GREEN = "\033[32m"
@@ -75,7 +75,7 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    print(f"{BOLD}THOR run{RESET}")
+    print(f"{BOLD}RIN run{RESET}")
     print(f"{DIM}Model: {args.model}{RESET}")
     print()
 
@@ -83,7 +83,7 @@ def run(args: argparse.Namespace) -> None:
         print(f"{RED}Error: --gen must be >= 1{RESET}", file=sys.stderr)
         sys.exit(1)
 
-    engine = ThorEngine()
+    engine = RinEngine()
     try:
         engine.load_model(args.model)
     except Exception as e:

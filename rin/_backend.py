@@ -15,8 +15,8 @@ HAS_NATIVE: bool = False
 """``True`` when the CPython C extension (``_cengine``) is available."""
 
 # We fill these after deciding which backend to use
-ThorContext: Any = None
-ThorException: Any = None
+RinContext: Any = None
+RinException: Any = None
 
 # Mode constants — always present regardless of backend
 MODE_MLP: int = 0
@@ -46,21 +46,21 @@ def _backend_name() -> str:
 # ------------------------------------------------------------------ #
 
 def _try_native() -> bool:
-    global HAS_NATIVE, ThorContext, ThorException
+    global HAS_NATIVE, RinContext, RinException
     global MODE_MLP, MODE_SNN, MODE_ATTN, MODE_THOR, MODE_TRANSFORMER
     global STATUS_OK, STATUS_ERR_INIT, STATUS_ERR_MEMORY, STATUS_ERR_WEIGHTS
     global STATUS_ERR_INFERENCE, STATUS_ERR_NOT_INITIALIZED
     global STATUS_ERR_INVALID_INPUT, STATUS_ERR_UNSUPPORTED
 
     try:
-        from rin import _cengine as _ce
+        from . import _cengine as _ce
     except ImportError as e:
         logger.debug("Native C extension not available: %s", e)
         return False
 
     HAS_NATIVE = True
-    ThorContext = _ce.ThorContext
-    ThorException = _ce.ThorException
+    RinContext = _ce.RinContext
+    RinException = _ce.RinException
 
     MODE_MLP = _ce.MODE_MLP
     MODE_SNN = _ce.MODE_SNN
@@ -85,17 +85,17 @@ def _try_native() -> bool:
 # ------------------------------------------------------------------ #
 
 def _try_ctypes() -> bool:
-    global HAS_NATIVE, ThorContext, ThorException
+    global HAS_NATIVE, RinContext, RinException
     global MODE_MLP, MODE_SNN, MODE_ATTN, MODE_THOR, MODE_TRANSFORMER
     global STATUS_OK, STATUS_ERR_INIT, STATUS_ERR_MEMORY, STATUS_ERR_WEIGHTS
     global STATUS_ERR_INFERENCE, STATUS_ERR_NOT_INITIALIZED
     global STATUS_ERR_INVALID_INPUT, STATUS_ERR_UNSUPPORTED
 
     try:
-        from rin._thor_native import (
+        from ._rin_native import (
             ThorMode as _TM,
             ThorStatus as _TS,
-            ThorError,
+            ThorError as RinError,
             thor_create,
             thor_destroy,
             thor_load_model,
@@ -123,13 +123,13 @@ def _try_ctypes() -> bool:
         logger.debug("ctypes backend not available: %s", e)
         return False
 
-    ThorException = ThorError
+    RinException = RinError
 
     # We create a compatibility wrapper so engine.py can use the
     # same interface as the native backend.
 
     class _CtypesContext:
-        """Compatibility wrapper: exposes the same API as native ThorContext."""
+        """Compatibility wrapper: exposes the same API as native RinContext."""
 
         def __init__(self) -> None:
             self._ctx: int = thor_create()
@@ -232,7 +232,7 @@ def _try_ctypes() -> bool:
         def __del__(self) -> None:
             self.close()
 
-    ThorContext = _CtypesContext
+    RinContext = _CtypesContext
 
     MODE_MLP = _TM.MLP
     MODE_SNN = _TM.SNN
@@ -250,8 +250,8 @@ def _try_ctypes() -> bool:
 if not _try_native():
     _try_ctypes()
 
-if ThorContext is None:
+if RinContext is None:
     raise ImportError(
-        "No THOR runtime backend available.\n"
+        "No RIN runtime backend available.\n"
         "Install the package or build librin.so with:  make librin.so"
     )

@@ -5,7 +5,7 @@
  *   ./rin_demo <model>                             # MLP argmax (default)
  *   ./rin_demo <model> --snn                       # SNN mode
  *   ./rin_demo <model> --attn                      # Attention mode
- *   ./rin_demo <model> --thor                      # THOR heritage mode
+ *   ./rin_demo <model> --thor                      # RIN heritage mode
  *   ./rin_demo <model> --transformer               # Transformer text generation
  *   ./rin_demo <model> --transformer --prompt="Hi" # Transformer with prompt
  *   ./rin_demo <model> --transformer --gen=50      # Generate 50 tokens
@@ -172,8 +172,8 @@ static void decode_ids(RIN_Context* ctx, const uint32_t* ids, int n, char* out, 
 }
 
 int main(int argc, char** argv) {
-    printf("\n  RIN v1.0 - 5 inference modes: MLP | SNN | Attention | THOR | Transformer\n");
-    printf("  Backend: THOR INT8 SIMD (AVX2) + BSPN + PTsoftmax\n\n");
+    printf("\n  RIN v1.0 - 5 inference modes: MLP | SNN | ATTN | RIN | Transformer\n");
+    printf("  Backend: RIN INT8 SIMD (AVX2) + BSPN + PTsoftmax\n\n");
 
     if (argc < 2) {
         printf("  Usage: %s <model> [--snn|--attn|--thor|--transformer|--sample|--benchmark|--energy]\n", argv[0]);
@@ -283,7 +283,7 @@ int main(int argc, char** argv) {
         printf("\n");
 
     } else {
-        /* --- MLP / SNN / ATTN / THOR CLASSIFICATION --- */
+        /* --- MLP / SNN / ATTN / RIN CLASSIFICATION --- */
         for (int i = 0; i < 784; i++) input[i] = (uint32_t)(i % 10);
         double t0 = now_us();
         RIN_Inference(&ctx, input, 784, 1, &result);

@@ -1,4 +1,4 @@
-"""Profiling and debugging utilities for THOR inference.
+"""Profiling and debugging utilities for RIN engine inference.
 
 Provides :class:`Profiler` for systematic benchmarking across modes,
 including detailed latency, throughput, and energy metrics.
@@ -10,24 +10,24 @@ import time
 from typing import Any, Dict, List, Optional
 
 from rin._backend import (
-    ThorException as ThorError,
+    RinException,
     MODE_MLP, MODE_SNN, MODE_ATTN, MODE_THOR, MODE_TRANSFORMER,
 )
-from rin.runtime.engine import ThorEngine
+from rin.runtime.engine import RinEngine
 
 __all__ = ["Profiler"]
 
 
 class Profiler:
-    """Systematic profiler for THOR inference engines.
+    """Systematic profiler for RIN engine inference engines.
 
     Parameters
     ----------
-    engine : ThorEngine
+    engine : RinEngine
         An initialised engine with a model already loaded.
     """
 
-    def __init__(self, engine: ThorEngine) -> None:
+    def __init__(self, engine: RinEngine) -> None:
         self._engine = engine
 
     # ------------------------------------------------------------------
@@ -160,7 +160,7 @@ class Profiler:
                 )
                 profile["mode"] = mode_name
                 results.append(profile)
-            except ThorError as exc:
+            except RinException as exc:
                 results.append(
                     {
                         "mode": mode_name,
@@ -197,7 +197,7 @@ class Profiler:
         Returns
         -------
         dict
-            ``engine_info`` — model metadata from :attr:`ThorEngine.info`.
+            ``engine_info`` — model metadata from :attr:`RinEngine.info`.
 
             ``version`` — C library version string.
 

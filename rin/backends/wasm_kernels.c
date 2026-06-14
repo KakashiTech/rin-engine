@@ -1,4 +1,4 @@
-/* WASM SIMD-optimised kernels for THOR inference.
+/* WASM SIMD kernels for RIN inference.
  *
  * Compile with:  -O3 -msimd128 -DTHOR_WASM_SIMD
  *

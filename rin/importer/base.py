@@ -1,7 +1,7 @@
-"""Base classes for the THOR import pipeline.
+"""Base classes for the RIN import pipeline.
 
 WeightLayer — a single quantised weight+bias container.
-ThorGraph  — top-level container that serialises to/from the .rin format.
+RinGraph  — top-level container that serialises to/from the .rin format.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ class WeightLayer:
         return (self.weights.astype(np.float32) - 128.0) * self.scale
 
 
-class ThorGraph:
+class RinGraph:
     """Computation graph holding a list of ``WeightLayer`` layers and metadata.
 
     Serialises to / deserialises from the ``.rin`` binary format.
@@ -161,15 +161,15 @@ class ThorGraph:
     # -- deserialisation --------------------------------------------------
 
     @classmethod
-    def load(cls, path: str) -> "ThorGraph":
-        """Load a ``.rin`` file and return a ``ThorGraph``."""
+    def load(cls, path: str) -> "RinGraph":
+        """Load a ``.rin`` file and return a ``RinGraph``."""
         with open(path, "rb") as f:
             data = f.read()
         return cls.from_bytes(data)
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> "ThorGraph":
-        """Parse a raw byte sequence into a ``ThorGraph``."""
+    def from_bytes(cls, data: bytes) -> "RinGraph":
+        """Parse a raw byte sequence into a ``RinGraph``."""
         offset = 0
         magic = data[offset:offset + 4]
         offset += 4
@@ -189,7 +189,7 @@ class ThorGraph:
 
     @classmethod
     def _read_mlp(cls, data: bytes, offset: int,
-                  version: int) -> "ThorGraph":
+                  version: int) -> "RinGraph":
         num_layers = struct.unpack_from("<I", data, offset)[0]
         offset += 4
         input_dim = struct.unpack_from("<I", data, offset)[0]
@@ -213,7 +213,7 @@ class ThorGraph:
 
     @classmethod
     def _read_transformer(cls, data: bytes, offset: int,
-                          version: int) -> "ThorGraph":
+                          version: int) -> "RinGraph":
         num_layers = struct.unpack_from("<I", data, offset)[0]
         offset += 4
         dim = struct.unpack_from("<I", data, offset)[0]

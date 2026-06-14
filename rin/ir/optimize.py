@@ -1,4 +1,4 @@
-"""Graph optimisation passes for the THOR intermediate representation.
+"""Graph optimisation passes for the RIN intermediate representation.
 
 Provides fusion, elimination, and constant-folding passes that operate on
 ``ComputationGraph``.
@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Set
 
 import numpy as np
 
-from rin.ir.graph import ComputationGraph, ThorNode
+from rin.ir.graph import ComputationGraph, RinNode
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ def remove_noop(g: ComputationGraph) -> ComputationGraph:
     nodes = list(g.nodes)
     tensors = g.tensors()
 
-    kept: List[ThorNode] = []
+    kept: List[RinNode] = []
     skip: Set[int] = set()
 
     for i, node in enumerate(nodes):
@@ -184,7 +184,7 @@ def constant_fold(g: ComputationGraph) -> ComputationGraph:
         if "const_value" in node.attrs:
             const_values[node.outputs[0]] = node.attrs["const_value"]
 
-    kept: List[ThorNode] = []
+    kept: List[RinNode] = []
     for node in nodes:
         # Check if all inputs are known constants
         all_const = all(inp in const_values for inp in node.inputs)
@@ -198,7 +198,7 @@ def constant_fold(g: ComputationGraph) -> ComputationGraph:
                     out = node.outputs[0] if node.outputs else "const"
                     const_values[out] = result
                     # Replace with a constant node
-                    kept.append(ThorNode(
+                    kept.append(RinNode(
                         op_type="constant",
                         inputs=[],
                         outputs=[out],
@@ -214,7 +214,7 @@ def constant_fold(g: ComputationGraph) -> ComputationGraph:
     return ComputationGraph(kept)
 
 
-def _evaluate(node: ThorNode, inputs: List[np.ndarray]) -> Optional[np.ndarray]:
+def _evaluate(node: RinNode, inputs: List[np.ndarray]) -> Optional[np.ndarray]:
     """Evaluate a simple arithmetic node given constant inputs."""
     if node.op_type == "add":
         return inputs[0] + inputs[1] if len(inputs) >= 2 else None

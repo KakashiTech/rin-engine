@@ -1,4 +1,4 @@
-"""GGUF model converter for the THOR format (experimental)."""
+"""GGUF model converter for the RIN format (experimental)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ def convert_gguf_model(
     model_path: Union[str, Path],
     output_path: Optional[Union[str, Path]] = None,
     **kwargs: Any,
-) -> "ThorGraph":
+) -> "RinGraph":
     raise ImportError(
         "GGUF support requires the ``gguf`` package.\n"
         "Install it with:  pip install gguf\n"

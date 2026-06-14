@@ -1,5 +1,5 @@
 """
-Low-level ctypes wrapper around librin.so — the THOR C runtime library.
+Low-level ctypes wrapper around librin.so — the RIN C runtime library.
 
 Provides complete ctype definitions for all exported C structs, enums, and
 functions, together with automatic library discovery and thread-safe dispatch.
@@ -25,8 +25,8 @@ from pathlib import Path
 from typing import ClassVar, List, Optional, Tuple
 
 __all__ = [
-    "ThorError",
-    "ThorInitError",
+    "RinError",
+    "RinInitError",
     "ThorMemoryError",
     "ThorWeightsError",
     "ThorInferenceError",
@@ -82,7 +82,7 @@ __all__ = [
 
 
 class ThorError(Exception):
-    """Base exception for all THOR runtime errors."""
+    """Base exception for all RIN runtime errors."""
 
 
 class ThorInitError(ThorError):
@@ -318,7 +318,7 @@ def _resolve_library_path() -> str:
 
 
 def load_library(path: Optional[str] = None) -> ctypes.CDLL:
-    """Load (or re-load) the THOR C shared library.
+    """Load the RIN C shared library.
 
     Parameters
     ----------
@@ -345,7 +345,7 @@ def load_library(path: Optional[str] = None) -> ctypes.CDLL:
         _lib = ctypes.CDLL(lib_path)
     except OSError as e:
         raise ThorError(
-            f"Failed to load THOR shared library from {lib_path!r}: {e}"
+            f"Failed to load RIN shared library from {lib_path!r}: {e}"
         ) from e
     return _lib
 
@@ -476,7 +476,7 @@ def _check(status: int) -> int:
 
 
 def thor_create() -> int:
-    """Create a new THOR runtime context.
+    """Create a new RIN runtime context.
 
     Returns
     -------
@@ -497,7 +497,7 @@ def thor_create() -> int:
 
 
 def thor_destroy(ctx: int) -> None:
-    """Destroy a THOR runtime context previously created with :func:`thor_create`.
+    """Destroy a RIN runtime context previously created with :func:`thor_create`.
 
     Parameters
     ----------
@@ -897,7 +897,7 @@ def thor_profile(
 
 
 def thor_version() -> str:
-    """Return the version string of the THOR C library.
+    """Return the version string of the RIN C library.
 
     Returns
     -------

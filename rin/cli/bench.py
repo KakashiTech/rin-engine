@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from rin.runtime import ThorEngine
+from rin.runtime import RinEngine
 
 BOLD = "\033[1m"
 GREEN = "\033[32m"
@@ -71,7 +71,7 @@ def _fmt(val: float, unit: str = "") -> str:
 
 
 def _run_single(
-    engine: ThorEngine, mode: str, warmup: int, iterations: int
+    engine: RinEngine, mode: str, warmup: int, iterations: int
 ) -> dict:
     engine.mode = mode
     result = engine.benchmark(mode=mode, warmup=warmup, iterations=iterations)
@@ -85,7 +85,7 @@ def _run_single(
 
 
 def run(args: argparse.Namespace) -> None:
-    print(f"{BOLD}THOR bench{RESET}")
+    print(f"{BOLD}RIN bench{RESET}")
     print(f"{DIM}Model: {args.model}{RESET}")
     print()
 
@@ -96,7 +96,7 @@ def run(args: argparse.Namespace) -> None:
         print(f"{RED}Error: --iterations must be >= 1{RESET}", file=sys.stderr)
         sys.exit(1)
 
-    engine = ThorEngine()
+    engine = RinEngine()
     try:
         engine.load_model(args.model)
     except Exception as e:

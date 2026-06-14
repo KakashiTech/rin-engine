@@ -7,7 +7,7 @@
  *   SNN:        GEMV → LIF(×timesteps) → BSPN → ... → PTsoftmax → Argmax
  *   ATTN:       GEMV → Attention → BSPN → ... → PTsoftmax → Sample(token)
  *
- * Backend: THOR INT8 SIMD para GEMV (máximo rendimiento en Zen 3)
+ * Backend: RIN INT8 SIMD para GEMV (máximo rendimiento en Zen 3)
  * Integración: BSPN + PTsoftmax + LIF + Attention + KV Cache + RAPL
  */
 
@@ -60,7 +60,7 @@ typedef struct {
     RIN_KVCache kv_cache;
     int max_dim;
     uint64_t total_energy_uj;
-    /* THOR heritage: output layer separado (formato original) */
+    /* RIN heritage: output layer separado (formato original) */
     uint8_t *thor_W_out;
     int16_t thor_scale_out;
     int16_t *thor_bias_out;
@@ -1038,7 +1038,7 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
         }
 
     } else if (ctx->config.inference_mode == RIN_MODE_THOR) {
-        /* THOR MODE: GEMV puro, misma semántica que thor_final.c */
+        /* RIN MODE: GEMV puro, misma semántica que thor_final.c */
         for (int li = 0; li < num_hidden; li++) {
             int K = (li == 0) ? m->input_dim : m->layer_dims[li-1];
             int M = m->layer_dims[li];
@@ -1066,7 +1066,7 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
     if (ctx->config.inference_mode == RIN_MODE_TRANSFORMER) {
         /* Already handled above */
     } else if (ctx->config.inference_mode == RIN_MODE_THOR) {
-        /* THOR: GEMV + bias + clamp[0,255], sin softmax */
+        /* RIN: GEMV + bias + clamp[0,255], sin softmax */
         int last_dim = m->layer_dims[m->num_layers - 2];
         od = m->output_dim;
         const uint8_t *W = m->W[m->num_layers - 1];

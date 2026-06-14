@@ -1,7 +1,7 @@
-"""Energy monitoring utilities for THOR inference sessions.
+"""Energy monitoring utilities for RIN engine inference sessions.
 
 Provides :class:`EnergyMonitor` for measuring energy consumption deltas
-during model execution via the THOR C runtime's built-in RAPL / energy
+during model execution via the RIN C runtime's built-in RAPL / energy
 counters.
 """
 
@@ -11,7 +11,7 @@ import time
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
-    from rin.runtime.engine import ThorEngine
+    from rin.runtime.engine import RinEngine
 
 # Lazy import of low-level energy functions — they come from whichever
 # backend is active (native or ctypes).
@@ -41,7 +41,7 @@ __all__ = ["EnergyMonitor"]
 
 
 class EnergyMonitor:
-    """Track energy consumption deltas for a :class:`ThorEngine`.
+    """Track energy consumption deltas for a :class:`RinEngine`.
 
     Samples the engine's built-in energy counter at strategic points so the
     caller can measure the energy cost of individual inference calls or
@@ -49,12 +49,12 @@ class EnergyMonitor:
 
     Parameters
     ----------
-    engine : ThorEngine, optional
+    engine : RinEngine, optional
         Engine to monitor.  When ``None`` (default) only the software
         timer is available for wall-clock measurements.
     """
 
-    def __init__(self, engine: Optional[ThorEngine] = None) -> None:
+    def __init__(self, engine: Optional[RinEngine] = None) -> None:
         self._engine = engine
         self._start_joules: float = 0.0
         self._start_timer: float = 0.0

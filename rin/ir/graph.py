@@ -1,6 +1,6 @@
-"""Advanced computation graph representation for THOR models.
+"""Advanced computation graph representation for RIN models.
 
-Provides ``ThorNode`` (a single operation) and ``ComputationGraph`` (a
+Provides ``RinNode`` (a single operation) and ``ComputationGraph`` (a
 composable graph of nodes) with ASCII visualisation, operator counting,
 and optimisation passes.
 """
@@ -58,7 +58,7 @@ OP_CATEGORIES: Dict[str, str] = {
 
 
 @dataclass
-class ThorNode:
+class RinNode:
     """A single operation node in the computation graph.
 
     Attributes
@@ -104,18 +104,18 @@ class ThorNode:
 # ---------------------------------------------------------------------------
 
 class ComputationGraph:
-    """A composable directed graph of ``ThorNode`` nodes.
+    """A composable directed graph of ``RinNode`` nodes.
 
     Parameters
     ----------
-    nodes : iterable of ThorNode, optional
+    nodes : iterable of RinNode, optional
         Initial nodes.
     """
 
-    def __init__(self, nodes: Optional[List[ThorNode]] = None) -> None:
-        self.nodes: List[ThorNode] = nodes or []
+    def __init__(self, nodes: Optional[List[RinNode]] = None) -> None:
+        self.nodes: List[RinNode] = nodes or []
 
-    def add_node(self, node: ThorNode) -> None:
+    def add_node(self, node: RinNode) -> None:
         """Append *node* to the graph."""
         self.nodes.append(node)
 
@@ -218,7 +218,7 @@ class ComputationGraph:
 
     def _remove_identity(self) -> "ComputationGraph":
         """Remove ``identity`` nodes, re-wiring inputs to outputs."""
-        kept: List[ThorNode] = []
+        kept: List[RinNode] = []
         # Map: identity_output → identity_input
         remap: Dict[str, str] = {}
         for node in self.nodes:
@@ -240,7 +240,7 @@ class ComputationGraph:
 
     def _fuse_reshapes(self) -> "ComputationGraph":
         """Merge consecutive reshape nodes operating on the same tensor."""
-        kept: List[ThorNode] = []
+        kept: List[RinNode] = []
         reshape_map: Dict[str, str] = {}  # output → input of reshape chain
         i = 0
         while i < len(self.nodes):
@@ -259,7 +259,7 @@ class ComputationGraph:
                     reshape_map[inner_out] = reshape_map.get(out, node.inputs[0])
                     out = inner_out
                 # Keep a single fused reshape
-                fused = ThorNode(
+                fused = RinNode(
                     op_type="reshape",
                     inputs=[reshape_map[out]],
                     outputs=[out],
@@ -282,7 +282,7 @@ class ComputationGraph:
 
     def _eliminate_transpose_pairs(self) -> "ComputationGraph":
         """Remove ``transpose; transpose`` pairs that cancel out."""
-        kept: List[ThorNode] = []
+        kept: List[RinNode] = []
         skip: Set[int] = set()
         for i, node in enumerate(self.nodes):
             if i in skip:
@@ -296,7 +296,7 @@ class ComputationGraph:
                         and nxt.inputs[0] == node.outputs[0]):
                     # They cancel: wire the first input to the second output
                     if nxt.outputs and node.inputs:
-                        kept.append(ThorNode(
+                        kept.append(RinNode(
                             op_type="identity",
                             inputs=list(node.inputs),
                             outputs=list(nxt.outputs),

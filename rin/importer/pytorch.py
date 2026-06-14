@@ -1,4 +1,4 @@
-"""PyTorch model converter for the THOR format.
+"""PyTorch model converter for the RIN format.
 
 Supports:
   - ``nn.Sequential`` with ``nn.Linear`` layers   -> MLP architecture
@@ -33,8 +33,8 @@ def convert_pytorch_model(
     model_or_path: Any,
     output_path: Optional[Union[str, Path]] = None,
     **kwargs: Any,
-) -> "ThorGraph":
-    """Convert a PyTorch model to THOR format.
+) -> "RinGraph":
+    """Convert a PyTorch model to RIN format.
 
     Parameters
     ----------
@@ -47,7 +47,7 @@ def convert_pytorch_model(
 
     Returns
     -------
-    ThorGraph
+    RinGraph
         Populated graph ready for serialisation.
     """
     torch, nn = _import_torch()
@@ -118,8 +118,8 @@ def _convert_mlp(
     torch: Any,
     nn: Any,
     **kwargs: Any,
-) -> "ThorGraph":
-    from rin.importer.base import ThorGraph, WeightLayer
+) -> "RinGraph":
+    from rin.importer.base import RinGraph, WeightLayer
 
     layers: List[WeightLayer] = []
     input_dim: Optional[int] = None
@@ -138,7 +138,7 @@ def _convert_mlp(
 
         w = w.T
         rows, cols = w.shape
-        quant_w, scale = ThorGraph.quantize_weights(w.ravel())
+        quant_w, scale = RinGraph.quantize_weights(w.ravel())
 
         if input_dim is None:
             input_dim = rows
@@ -165,7 +165,7 @@ def _convert_mlp(
         "input_dim": input_dim or 0,
         "output_dim": output_dim,
     }
-    graph = ThorGraph(meta)
+    graph = RinGraph(meta)
     for layer in layers:
         graph.add_layer(layer)
 
@@ -186,8 +186,8 @@ def _convert_transformer(
     torch: Any,
     nn: Any,
     **kwargs: Any,
-) -> "ThorGraph":
-    from rin.importer.base import ThorGraph, WeightLayer
+) -> "RinGraph":
+    from rin.importer.base import RinGraph, WeightLayer
 
     cfg = model.config if hasattr(model, "config") else None
     sd = model.state_dict()
@@ -211,7 +211,7 @@ def _convert_transformer(
         "max_seq_len": max_seq_len,
         "ffn_dim": ffn_dim,
     }
-    graph = ThorGraph(meta)
+    graph = RinGraph(meta)
 
     def _add_layer(
         name: str, w: np.ndarray, b: Optional[np.ndarray] = None
@@ -231,7 +231,7 @@ def _convert_transformer(
         else:
             rows, cols = w.shape[0], 1
 
-        quant_w, scale = ThorGraph.quantize_weights(w.ravel())
+        quant_w, scale = RinGraph.quantize_weights(w.ravel())
         graph.add_layer(
             WeightLayer(
                 name=name, shape=(rows, cols), scale=scale,

@@ -18,7 +18,7 @@ Subcommands:
 import argparse
 import sys
 
-from rin.runtime import ThorEngine
+from rin.runtime import RinEngine
 
 from rin.cli import run, bench, energy, inspect, import_cmd
 
@@ -34,7 +34,7 @@ RESET = "\033[0m"
 
 def get_version() -> str:
     try:
-        lib_ver = ThorEngine.version()
+        lib_ver = RinEngine.version()
     except Exception:
         lib_ver = "unavailable"
     return f"RIN CLI v{VERSION}  (runtime {lib_ver})"

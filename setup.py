@@ -9,10 +9,10 @@ ext_modules = []
 cengine_src = [
     "_cengine.c",
     "lib/src/rin_core.c",
-    "lib/src/thorin_api.c",
-    "thorin/backends/neon_kernels.c",
-    "thorin/backends/wasm_kernels.c",
-    "thorin/backends/detect.c",
+    "lib/src/rin_api.c",
+    "rin/backends/neon_kernels.c",
+    "rin/backends/wasm_kernels.c",
+    "rin/backends/detect.c",
 ]
 if all(os.path.isfile(s) for s in cengine_src):
     have_python_h = False

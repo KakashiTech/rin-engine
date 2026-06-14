@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""THOR import — convert external model formats to RIN.
+"""RIN import — convert external model formats to RIN.
 
 Usage:
     thor import <model> --output <model.rin> [--type auto|pytorch|onnx|gguf]
@@ -47,7 +47,7 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
         help="Import model from external format",
         description=(
             "Convert a model from an external format (PyTorch, ONNX, GGUF) "
-            "to the native THOR RIN format.  Source type is auto-detected "
+            "to the native RIN format.  Source type is auto-detected "
             "from the file extension when --type is not specified."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -151,7 +151,7 @@ _CONVERTERS: dict[str, callable] = {
 
 
 def run(args: argparse.Namespace) -> None:
-    print(f"{BOLD}THOR import{RESET}")
+    print(f"{BOLD}RIN import{RESET}")
     print()
 
     if not os.path.isfile(args.model):

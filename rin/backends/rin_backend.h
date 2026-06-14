@@ -1,4 +1,4 @@
-/* THOR Backend Kernel API — unified interface for NEON / WASM / x86 kernels.
+/* RIN Backend Kernel API — unified interface for NEON / WASM / x86 kernels.
  *
  * Each backend provides drop-in replacements for matmul, gemv, and softmax.
  * If a backend is not compiled in, its functions are no-ops returning 0.
@@ -43,7 +43,7 @@ void thor_wasm_softmax(float *x, int n);
 /* ----------------------------------------------------------------- */
 
 /* Returns a human-readable string like "neon", "wasm", "avx2", "generic". */
-const char* thor_best_backend(void);
+const char* rin_best_backend(void);
 
 #ifdef __cplusplus
 }

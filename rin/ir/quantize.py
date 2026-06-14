@@ -1,4 +1,4 @@
-"""Advanced quantisation utilities for THOR models.
+"""Advanced quantisation utilities for RIN models.
 
 Provides per-tensor / per-channel quantisation, model-level quantisation
 with optional calibration, and utilities for range analysis.
@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from rin.importer.base import ThorGraph, WeightLayer
+from rin.importer.base import RinGraph, WeightLayer
 from rin.ir.graph import ComputationGraph
 
 
@@ -85,11 +85,11 @@ def quantize_tensor(
 
 
 def quantize_model(
-    model_graph: ThorGraph,
+    model_graph: RinGraph,
     bits: int = 8,
     calibration_data: Optional[Dict[str, np.ndarray]] = None,
-) -> ThorGraph:
-    """Quantise an entire ``ThorGraph`` model.
+) -> RinGraph:
+    """Quantise an entire ``RinGraph`` model.
 
     When *calibration_data* is provided the scale for each layer is
     selected to minimise quantisation error over the calibration
@@ -98,7 +98,7 @@ def quantize_model(
 
     Parameters
     ----------
-    model_graph : ThorGraph
+    model_graph : RinGraph
         Source graph (typically dequantised or freshly built).
     bits : int
         Target bit width (4 or 8).
@@ -108,7 +108,7 @@ def quantize_model(
 
     Returns
     -------
-    ThorGraph
+    RinGraph
         New graph with re-quantised weight layers.
     """
     quantized_layers: List[WeightLayer] = []
@@ -139,7 +139,7 @@ def quantize_model(
             )
         )
 
-    new_graph = ThorGraph(metadata=dict(model_graph.metadata))
+    new_graph = RinGraph(metadata=dict(model_graph.metadata))
     for layer in quantized_layers:
         new_graph.add_layer(layer)
 
@@ -179,7 +179,7 @@ def _optimal_scale(
 
 
 def calibrate(
-    model_graph: ThorGraph,
+    model_graph: RinGraph,
     dataset: Union[np.ndarray, List[np.ndarray]],
     num_samples: int = 100,
 ) -> Dict[str, np.ndarray]:
@@ -187,7 +187,7 @@ def calibrate(
 
     Parameters
     ----------
-    model_graph : ThorGraph
+    model_graph : RinGraph
         The model to calibrate.
     dataset : np.ndarray or list of np.ndarray
         Representative input data (or list of samples).
@@ -222,14 +222,14 @@ def calibrate(
 
 
 def analyze_ranges(
-    graph_or_node: Union[ThorGraph, WeightLayer],
+    graph_or_node: Union[RinGraph, WeightLayer],
 ) -> Dict[str, Any]:
     """Analyse value ranges across a graph or weight layer.
 
     Returns a dictionary with keys:
     ``min``, ``max``, ``mean``, ``std``, ``scale``, ``dynamic_range``.
     """
-    if isinstance(graph_or_node, ThorGraph):
+    if isinstance(graph_or_node, RinGraph):
         layers = graph_or_node.layers
         if not layers:
             return {}

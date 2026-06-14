@@ -1,12 +1,12 @@
-"""High-level :class:`ThorEngine` wrapper around the THOR C runtime.
+"""High-level :class:`RinEngine` wrapper around the RIN C runtime.
 
 Usage
 -----
 .. code:: python
 
-    from rin.runtime import ThorEngine
+    from rin.runtime import RinEngine
 
-    with ThorEngine("model.rin", mode="mlp") as engine:
+    with RinEngine("model.rin", mode="mlp") as engine:
         info = engine.info
         print(f"Model: {info['num_parameters']} parameters")
 
@@ -26,8 +26,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from rin._backend import (
-    ThorContext as _ThorContext,
-    ThorException,
+    RinContext as _RinContext,
+    RinException,
     MODE_MLP,
     MODE_SNN,
     MODE_ATTN,
@@ -45,11 +45,11 @@ _MODE_NAMES: Dict[int, str] = {
 }
 _MODE_VALUES: Dict[str, int] = {v: k for k, v in _MODE_NAMES.items()}
 
-__all__ = ["ThorEngine"]
+__all__ = ["RinEngine"]
 
 
-class ThorEngine:
-    """High-level Python interface to a THOR runtime context.
+class RinEngine:
+    """High-level Python interface to a RIN runtime context.
 
     Uses either the native CPython extension (``_cengine``) or
     the ctypes fallback (``librin.so``) — selected automatically.
@@ -64,7 +64,7 @@ class ThorEngine:
 
     Raises
     ------
-    ThorException
+    RinException
         If the context cannot be created or the model cannot be loaded.
     """
 
@@ -73,7 +73,7 @@ class ThorEngine:
         model_path: Optional[str] = None,
         mode: str = "mlp",
     ) -> None:
-        self._ctx: _ThorContext = _ThorContext()
+        self._ctx: _RinContext = _RinContext()
         self._closed: bool = False
         if mode:
             self.mode = mode
@@ -89,7 +89,7 @@ class ThorEngine:
             self._ctx.close()
         self._closed = True
 
-    def __enter__(self) -> ThorEngine:
+    def __enter__(self) -> RinEngine:
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -308,28 +308,28 @@ class ThorEngine:
 
     @staticmethod
     def version() -> str:
-        """Return the THOR C library version string."""
+        """Return the RIN C library version string."""
         try:
-            from rin import _cengine as _ce
+            from .. import _cengine as _ce
             return _ce.version()
         except Exception:
             pass
         try:
-            from rin._thor_native import rin_version
+            from .._rin_native import thor_version
             return thor_version()
         except Exception:
             return "unavailable"
 
     @staticmethod
     def version_numbers() -> Tuple[int, int, int]:
-        """Return the THOR C library version as ``(major, minor, patch)``."""
+        """Return the RIN C library version as ``(major, minor, patch)``."""
         try:
-            from rin import _cengine as _ce
+            from .. import _cengine as _ce
             return _ce.version_numbers()
         except Exception:
             pass
         try:
-            from rin._thor_native import rin_version_numbers
+            from .._rin_native import thor_version_numbers
             return thor_version_numbers()
         except Exception:
             return (0, 0, 0)
