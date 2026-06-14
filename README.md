@@ -48,7 +48,7 @@ Hardware: AMD Ryzen 5 5600G, DDR4-3200, GCC 15. Model: 4-layer, 262K params, INT
 | Latency (µs/inf) | 202 | 783 (FP32) | **3.9× faster** |
 | Energy (µJ/pkg) | 5,654 | 28,510 (FP32) | **5.0× efficient** |
 
-> **Note:** THOR uses INT8 quantization while ONNX runs FP32. This is the current baseline. A direct INT8-vs-INT8 comparison requires an INT8-capable ONNX Runtime build (ortextensions or onnxruntime-trt) — this will be added in a future release. Methodology details and limitations in `CLAIMS_HONEST.md`.
+> **Note:** THOR uses INT8 quantization while ONNX runs FP32. This is the current baseline. A direct INT8-vs-INT8 comparison requires an INT8-capable ONNX Runtime build (ortextensions or onnxruntime-trt) — will be added in a future release.
 
 ---
 
