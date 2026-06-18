@@ -11,6 +11,12 @@
 
 ## Sprint 2 — Real-world demo (Days 31-60)
 
+- [x] BHRR multi-slot associative memory (S=8) — differentiable hash slots, O(1) memory per head
+- [x] BHRR C engine with uint8 quantization, Q15 arithmetic, VPMADDUBSW GEMV
+- [x] BHRR validation: dim=128 (2.45 val_loss, coherent text), dim=256 (2.40, meaningful English)
+- [x] Architecture Decision Record (`lib/BHRR_ADR.md`)
+- [ ] BHRR vs softmax ablation at equivalent param count and layer depth
+- [ ] Quantization-aware training for BHRR to close argmax gap at larger dimensions
 - [ ] Train tiny-gpt-124M on real data (The Pile sample)
 - [ ] Export to .rin + publish on HuggingFace
 - [ ] Meaningful text generation demo

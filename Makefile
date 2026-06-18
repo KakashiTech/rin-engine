@@ -45,5 +45,10 @@ test: rin_test
 demo: rin_demo
 	./rin_demo --benchmark
 
+# BHRR build: define RIN_USE_BHRR to replace KV cache with bipolar HRR attention
+rin_demo_bhrr: override CFLAGS += -DRIN_USE_BHRR
+rin_demo_bhrr: rin_demo
+	cp rin_demo rin_demo_bhrr
+
 clean:
-	rm -f *.o rin_test rin_demo librin.so
+	rm -f *.o rin_test rin_demo rin_demo_bhrr librin.so

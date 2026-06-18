@@ -9,6 +9,10 @@ dist/
 *.egg-info
 rin_test
 rin_demo
+rin_demo_bhrr
+rin_demo_bhrr_dbg
+rin_demo_bhrr_dbg2
+rin_demo_dbg
 librin.so
 
 # Auxiliary datasets and large directories (not part of source)
@@ -18,6 +22,9 @@ models/
 archive/
 old/
 energy_comparison_*/
+
+# Revolutionary blueprint (private, not for public repo)
+PROGRES.MD
 
 # Misc
 thor_tiny_spgm.bin

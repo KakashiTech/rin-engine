@@ -185,20 +185,14 @@ static inline void RIN_PTSoftmax_Compute(const RIN_PTSoftmax_Table* table,
     uint32_t log2_sum = RIN_IntegerLog2((uint32_t)(sum >> 16));
     if (log2_sum < 8) log2_sum = 8;  /* Mínimo para no saturar */
     
-    /* Paso 3: Normalizar usando bit shift */
+    /* Paso 3: Normalizar: output = exp_val * 255 / sum
+     * sum y exp_val están en Q16 (uint32). El cociente cabe en uint8. */
+    uint32_t sum32 = (uint32_t)sum;
+    if (sum32 == 0) sum32 = 1;
     for (uint32_t i = 0; i < len; i++) {
-        /* exp_values es Q16, queremos output Q8 (0-255) */
-        /* exp >> log2_sum da ~1.0 para el máximo, escalamos a 255 */
-        uint32_t normalized;
-        if (log2_sum >= 16) {
-            normalized = exp_values[i] >> (log2_sum - 16);
-        } else {
-            normalized = exp_values[i] << (16 - log2_sum);
-        }
-        
-        /* Escalar a 0-255 con saturación */
-        if (normalized > 255) normalized = 255;
-        output[i] = (uint8_t)normalized;
+        uint32_t norm = exp_values[i] * 255U / sum32;
+        if (norm > 255) norm = 255;
+        output[i] = (uint8_t)norm;
     }
 }
 
@@ -232,11 +226,11 @@ static inline void RIN_PTSoftmax_ComputeOptimized(const uint16_t* exp_values,
     uint32_t shift = RIN_IntegerLog2((uint32_t)(sum >> 16));
     if (shift < 8) shift = 8;
     
-    /* Normalizar */
+    /* Normalizar: output = exp_val * 255 / sum */
+    uint32_t sum32 = (uint32_t)sum;
+    if (sum32 == 0) sum32 = 1;
     for (uint32_t i = 0; i < len; i++) {
-        uint32_t norm = (shift >= 16) 
-            ? (exp_values[i] >> (shift - 16))
-            : (exp_values[i] << (16 - shift));
+        uint32_t norm = exp_values[i] * 255U / sum32;
         output[i] = (uint8_t)((norm > 255) ? 255 : norm);
     }
 }

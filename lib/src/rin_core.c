@@ -21,6 +21,23 @@
 #include <unistd.h>
 #include <immintrin.h>
 
+/* BHRR attention: define RIN_USE_BHRR to replace KV cache with bipolar HRR */
+#ifdef RIN_USE_BHRR
+#include "rin_bhrr.h"
+#define RIN_BHRR_SLOTS 8
+
+/* Per-layer, per-head BHRR memory state */
+typedef struct {
+    RinBHRR* heads;       /* [num_heads] BHRR contexts */
+    int32_t* slot_bufs;   /* pre-allocated */
+    int16_t* key_bufs;    /* pre-allocated */
+    int num_layers;
+    int num_heads;
+    int head_dim;
+    int num_slots;
+} RIN_BHRR_State;
+#endif
+
 #define TILE_K 32
 #define TILE_OUT 8
 #define MAX_ATTN_HEADS 8
@@ -35,8 +52,8 @@ typedef struct {
     int input_dim, output_dim, num_layers;
     int layer_dims[64];
     uint8_t *W[64];
-    int16_t scale[64];
-    int16_t *bias[64];
+    float scale[64];
+    float *bias[64];
     int total_params;
     int loaded;
 } RIN_Model;
@@ -62,26 +79,31 @@ typedef struct {
     uint64_t total_energy_uj;
     /* RIN heritage: output layer separado (formato original) */
     uint8_t *thor_W_out;
-    int16_t thor_scale_out;
-    int16_t *thor_bias_out;
+    float thor_scale_out;
+    float *thor_bias_out;
 
     /* Transformer */
     int architecture;          /* 0=MLP, 1=Transformer */
     int num_heads, ffn_dim, max_seq_len;
-    int8_t *embed_table;       /* [vocab_size, dim] INT8 */
-    int16_t embed_scale;
-    int16_t *embed_bias;
+    uint8_t *embed_table;      /* [vocab_size, dim] uint8, centered at 128 */
+    float embed_scale;
+    float *embed_bias;
 
     /* Transformer per-layer weights */
     uint8_t *Wq[64], *Wk[64], *Wv[64], *Wo[64];
     uint8_t *W1[64], *W2[64];
-    int16_t sq[64], sk[64], sv[64], so[64];
-    int16_t s1[64], s2[64];
-    int16_t *bq[64], *bk[64], *bv[64], *bo[64];
-    int16_t *b1[64], *b2[64];
+    float sq[64], sk[64], sv[64], so[64];
+    float s1[64], s2[64];
+    float *bq[64], *bk[64], *bv[64], *bo[64];
+    float *b1[64], *b2[64];
 
     /* Position embeddings Q15 [max_seq, dim] */
     int16_t *pos_embed;
+
+    /* LayerNorm parameters Q15 [dim] per layer + final */
+    int16_t *ln_gamma[65];   /* [num_layers * 2 + 1] — ln1, ln2 per layer, then ln_f */
+    int16_t *ln_beta[65];
+    int num_ln_sets;
 
     /* KV cache (multi-head) [max_seq, num_heads * head_dim] */
     int16_t *k_cache, *v_cache;
@@ -93,6 +115,12 @@ typedef struct {
     int16_t *attn_buf;                /* Attention output */
     int16_t *ffn_buf;                 /* FFN hidden */
     int16_t *residual;                /* Residual stream */
+
+#ifdef RIN_USE_BHRR
+    /* BHRR experimental state */
+    RIN_BHRR_State bhrr;
+    int16_t *bhrr_qsign, *bhrr_ksign, *bhrr_vsign;
+#endif
 
     /* Character set (loaded from RIN file) */
     char *char_set;
@@ -140,27 +168,27 @@ static void gemv_kernel(const uint8_t *W, int M, int K,
  * SCALE + BIAS sobre buffer int32 (post-GEMV)
  * ============================================================================ */
 static void apply_scale_bias(int32_t *buf, int M,
-                              int16_t sc, int16_t *bs) {
+                              float sc, float *bs) {
     for (int j = 0; j < M; j++)
-        buf[j] = buf[j] * (int32_t)sc / 256 + bs[j];
+        buf[j] = (int32_t)(buf[j] * sc + bs[j]);
 }
 
 /* ============================================================================
  * HIDDEN LAYER: GEMV → Scale+Bias → ReLU → BSPN
  * ============================================================================ */
 static void rin_hidden_layer(RIN_Internal *rin, int li,
-                              int8_t *in, int8_t *out) {
+                               int8_t *in, int8_t *out) {
     RIN_Model *m = &rin->model;
     int K = (li == 0) ? m->input_dim : m->layer_dims[li-1];
     int M = m->layer_dims[li];
-    int16_t sc = m->scale[li];
-    int16_t *bs = m->bias[li];
+    float sc = m->scale[li];
+    float *bs = m->bias[li];
 
     gemv_kernel(m->W[li], M, K, in, rin->gemv_buf);
 
     int32_t l1 = 0;
     for (int j = 0; j < M; j++) {
-        int32_t v = rin->gemv_buf[j] * (int32_t)sc / 256 + bs[j];
+        int32_t v = (int32_t)(rin->gemv_buf[j] * sc + bs[j]);
         if (v < 0) v = 0;
         l1 += v;
     }
@@ -170,7 +198,7 @@ static void rin_hidden_layer(RIN_Internal *rin, int li,
     shift = shift > 8 ? shift - 8 : 0;
 
     for (int j = 0; j < M; j++) {
-        int32_t v = rin->gemv_buf[j] * (int32_t)sc / 256 + bs[j];
+        int32_t v = (int32_t)(rin->gemv_buf[j] * sc + bs[j]);
         if (v < 0) v = 0;
         v >>= shift;
         if (v > 127) v = 127;
@@ -186,8 +214,8 @@ static void rin_snn_layer(RIN_Internal *rin, RIN_Context *ctx, int li,
     RIN_Model *m = &rin->model;
     int K = (li == 0) ? m->input_dim : m->layer_dims[li-1];
     int M = m->layer_dims[li];
-    int16_t sc = m->scale[li];
-    int16_t *bs = m->bias[li];
+    float sc = m->scale[li];
+    float *bs = m->bias[li];
     int ts = ctx->config.timesteps;
 
     int8_t *in = rin->buf0;
@@ -202,7 +230,7 @@ static void rin_snn_layer(RIN_Internal *rin, RIN_Context *ctx, int li,
 
         /* LIF update for each neuron */
         for (int j = 0; j < M; j++) {
-            int32_t v = rin->gemv_buf[j] * (int32_t)sc / 256 + bs[j];
+            int32_t v = (int32_t)(rin->gemv_buf[j] * sc + bs[j]);
             if (v < -32768) v = -32768;
             if (v > 32767) v = 32767;
 
@@ -301,9 +329,34 @@ static inline void q15_to_int8(const int16_t *in, int8_t *out, int n) {
     }
 }
 
-/* Scale INT32 GEMV output → Q15 (int16) */
+/* Sum of int8 vector */
+static inline int32_t sum_int8(const int8_t *x, int n) {
+    int32_t s = 0;
+    for (int i = 0; i < n; i++) s += x[i];
+    return s;
+}
+
+/* Scale INT32 GEMV output → Q15 (int16)
+ * VPMADDUBSW computes sum(uint8 * int8), but weights use uint8 = int8 + 128 offset.
+ * gemv = sum((int8+128) * int8) = sum(int8*int8) + 128*sum(x).
+ * We correct: v = sf * (gemv - 128*sum_x) + bias_float
+ *            = sf * gemv - 128*sf*sum_x + bias_float
+ * bias is in float (same units as quantized weights). */
 static inline void scale_to_q15(const int32_t *gemv, int16_t *out, int n,
-                                 int16_t sc_q15, const int16_t *bias) {
+                                 float sc, const float *bias,
+                                 int32_t sum_x) {
+    float corr = 128.0f * sc * sum_x;
+    for (int i = 0; i < n; i++) {
+        float v = (gemv[i] * sc - corr + bias[i]) * 256.0f;
+        if (v < -32768.0f) v = -32768.0f;
+        if (v > 32767.0f) v = 32767.0f;
+        out[i] = (int16_t)v;
+    }
+}
+
+/* Old-style scale_to_q15 without VPMADDUBSW correction (for MLP path) */
+static inline void scale_to_q15_old(const int32_t *gemv, int16_t *out, int n,
+                                     int16_t sc_q15, const int16_t *bias) {
     for (int i = 0; i < n; i++) {
         int32_t v = gemv[i] * (int32_t)sc_q15 / 256 + bias[i];
         if (v < -32768) v = -32768;
@@ -327,19 +380,62 @@ static void rin_tfm_attention(RIN_Internal *rin, const int16_t *x,
 
     /* Quantize input for GEMV */
     q15_to_int8(x, rin->buf0, dim);
+    int32_t sum_x_qkv = sum_int8(rin->buf0, dim);
 
     /* Q projection */
     gemv_kernel(rin->Wq[layer], dim, dim, rin->buf0, rin->gemv_buf);
-    scale_to_q15(rin->gemv_buf, rin->q_buf, dim, rin->sq[layer], rin->bq[layer]);
+    scale_to_q15(rin->gemv_buf, rin->q_buf, dim, rin->sq[layer], rin->bq[layer], sum_x_qkv);
 
     /* K projection */
     gemv_kernel(rin->Wk[layer], dim, dim, rin->buf0, rin->gemv_buf);
-    scale_to_q15(rin->gemv_buf, rin->k_buf, dim, rin->sk[layer], rin->bk[layer]);
+    scale_to_q15(rin->gemv_buf, rin->k_buf, dim, rin->sk[layer], rin->bk[layer], sum_x_qkv);
 
     /* V projection */
     gemv_kernel(rin->Wv[layer], dim, dim, rin->buf0, rin->gemv_buf);
-    scale_to_q15(rin->gemv_buf, rin->v_buf, dim, rin->sv[layer], rin->bv[layer]);
+    scale_to_q15(rin->gemv_buf, rin->v_buf, dim, rin->sv[layer], rin->bv[layer], sum_x_qkv);
 
+#ifdef RIN_USE_BHRR
+    /* === BHRR attention path (experimental) === */
+    /* For each head: store K,V then retrieve with Q */
+    for (int h = 0; h < num_heads; h++) {
+        int off = h * hd;
+        RinBHRR* mem = &rin->bhrr.heads[layer * num_heads + h];
+
+        /* Quantize K, V to bipolar signs */
+        int16_t* ksign = rin->bhrr_ksign + off;
+        int16_t* vsign = rin->bhrr_vsign + off;
+        for (int d = 0; d < hd; d++) {
+            ksign[d] = rin_bhrr_sign_q15(rin->k_buf[off + d]);
+            vsign[d] = rin_bhrr_sign_q15(rin->v_buf[off + d]);
+        }
+
+        /* Store: C += sign(K) · sign(V) */
+        /* Retrieve: attn_out = C · sign(Q), scaled to Q15 range */
+        if (pos == 0) {
+            /* First token: retrieve is zero (no past context), just store */
+            memset(&rin->attn_buf[off], 0, hd * sizeof(int16_t));
+        } else {
+            /* Retrieve from accumulated context (past tokens only)
+             * Slot is determined by KEY (ksign), not by QUERY.
+             * Qsign is used for element-wise multiply after retrieval.
+             * This matches Python training: slot_ids from Ks, then R = Qs * ctx */
+            int16_t* qsign = rin->bhrr_qsign + off;
+            for (int d = 0; d < hd; d++)
+                qsign[d] = rin_bhrr_sign_q15(rin->q_buf[off + d]);
+            int slot = rin_bhrr_slot_id(ksign, hd, mem->num_slots);
+            const int32_t* ctx = &mem->slots[slot * hd];
+            rin_bhrr_ctx_retrieve(&rin->attn_buf[off], ctx, qsign, hd);
+            /* Scale retrieve output so that 1 stored token → Q15 value ±256 */
+            for (int d = 0; d < hd; d++)
+                rin->attn_buf[off + d] = rin_bhrr_sat16(
+                    (int32_t)rin->attn_buf[off + d] * 256);
+        }
+
+        /* Store current K,V into BHRR context for future tokens */
+        rin_bhrr_store(mem, ksign, vsign);
+    }
+#else
+    /* === Standard KV cache attention path === */
     /* Store K, V in cache at position pos */
     if (pos >= 0 && pos < rin->max_seq_len) {
         if (pos < rin->kv_pos + 10) {
@@ -405,50 +501,89 @@ static void rin_tfm_attention(RIN_Internal *rin, const int16_t *x,
             memset(&rin->attn_buf[off], 0, hd * sizeof(int16_t));
         }
     }
+#endif
 
-    /* Output projection (Wo) */
+    /* Output projection (Wo) — shared by both paths */
     q15_to_int8(rin->attn_buf, rin->buf0, dim);
+    int32_t sum_x_wo = sum_int8(rin->buf0, dim);
     gemv_kernel(rin->Wo[layer], dim, dim, rin->buf0, rin->gemv_buf);
-    scale_to_q15(rin->gemv_buf, rin->attn_buf, dim, rin->so[layer], rin->bo[layer]);
+    scale_to_q15(rin->gemv_buf, rin->attn_buf, dim, rin->so[layer], rin->bo[layer], sum_x_wo);
 }
 
 /* Transformer FFN: W2(ReLU(W1(x))) */
 static void rin_tfm_ffn(RIN_Internal *rin, const int16_t *x,
                          int dim, int ffn_dim, int layer) {
     q15_to_int8(x, rin->buf0, dim);
+    int32_t sum_x_w1 = sum_int8(rin->buf0, dim);
 
-    /* W1 up projection: dim → ffn_dim, ReLU */
+    /* W1 up projection: dim → ffn_dim, ReLU. Output is raw float [0,127]. */
     gemv_kernel(rin->W1[layer], ffn_dim, dim, rin->buf0, rin->gemv_buf);
+    float sc1 = rin->s1[layer];
+    float corr_w1 = 128.0f * sc1 * sum_x_w1;
     for (int j = 0; j < ffn_dim; j++) {
-        int32_t v = rin->gemv_buf[j] * (int32_t)rin->s1[layer] / 256 + rin->b1[layer][j];
-        if (v < 0) v = 0;
-        if (v > 127) v = 127;
+        float v = rin->gemv_buf[j] * sc1 - corr_w1 + rin->b1[layer][j];
+        if (v < 0.0f) v = 0.0f;
+        if (v > 127.0f) v = 127.0f;
         rin->buf1[j] = (int8_t)v;
     }
 
     /* W2 down projection: ffn_dim → dim, back to Q15 */
+    int32_t sum_x_w2 = sum_int8(rin->buf1, ffn_dim);
     gemv_kernel(rin->W2[layer], dim, ffn_dim, rin->buf1, rin->gemv_buf);
-    scale_to_q15(rin->gemv_buf, rin->ffn_buf, dim, rin->s2[layer], rin->b2[layer]);
+    scale_to_q15(rin->gemv_buf, rin->ffn_buf, dim, rin->s2[layer], rin->b2[layer], sum_x_w2);
+}
+
+/* Q15 LayerNorm: y = (x - mean) / sqrt(var + eps) * gamma + beta */
+static void rin_layer_norm(int16_t *x, int dim, const int16_t *gamma,
+                            const int16_t *beta) {
+    int32_t sum = 0;
+    for (int i = 0; i < dim; i++) sum += x[i];
+    int32_t mean = sum / dim;  /* Q15 mean */
+
+    int32_t var_sum = 0;
+    for (int i = 0; i < dim; i++) {
+        int32_t diff = x[i] - mean;
+        var_sum += (diff * diff) >> 7;  /* scale down to avoid overflow */
+    }
+    int32_t var = var_sum / dim;  /* Q15 variance (scaled by 1/128) */
+    if (var < 1) var = 1;
+    /* Use double for rsqrt to avoid underflow with -ffast-math */
+    double inv_var = (double)var * 128.0 / 65536.0 + 1e-5;
+    int32_t rstd = (int32_t)(65536.0 / sqrt(inv_var));
+
+    for (int i = 0; i < dim; i++) {
+        int32_t diff = x[i] - mean;
+        int32_t norm = (diff * rstd) >> 16;  /* Q15 normalized */
+        int32_t v = norm * gamma[i] / 256 + beta[i];
+        if (v < -32768) v = -32768;
+        if (v > 32767) v = 32767;
+        x[i] = (int16_t)v;
+    }
 }
 
 /* One transformer step: embed → attn × layers → unembed → logits */
 static void rin_tfm_step(RIN_Internal *rin, int token_id, int pos,
                           int16_t *logits, int dim, int num_layers,
                           int num_heads, int ffn_dim, int vocab_size) {
-    /* Embed token */
-    int8_t *emb = (int8_t*)rin->embed_table;
+    /* Embed token (uint8 centered at 128) */
+    uint8_t *emb = rin->embed_table;
     int e_off = (int)token_id * dim;
     for (int j = 0; j < dim; j++) {
-        int32_t v = (int32_t)emb[e_off + j] * rin->embed_scale / 256 + rin->embed_bias[j];
-        rin->residual[j] = clamp_q15(v + rin->pos_embed[(size_t)pos * dim + j]);
+        float deq = ((int32_t)emb[e_off + j] - 128) * rin->embed_scale + rin->embed_bias[j];
+        int32_t v_q15 = (int32_t)(deq * 256.0f);
+        rin->residual[j] = clamp_q15(v_q15 + rin->pos_embed[(size_t)pos * dim + j]);
     }
 
+    int has_ln = (rin->num_ln_sets > 0);
     /* Transformer layers */
     for (int l = 0; l < num_layers; l++) {
         /* Save residual for shortcut */
         int16_t saved[RIN_MAX_SAVED];
         int sd = dim < RIN_MAX_SAVED ? dim : RIN_MAX_SAVED;
         memcpy(saved, rin->residual, sd * sizeof(int16_t));
+
+        /* Pre-LN: apply ln1 before attention */
+        if (has_ln) rin_layer_norm(rin->residual, dim, rin->ln_gamma[l * 2], rin->ln_beta[l * 2]);
 
         /* Multi-head attention */
         rin_tfm_attention(rin, rin->residual, pos, dim, num_heads, l);
@@ -460,6 +595,9 @@ static void rin_tfm_step(RIN_Internal *rin, int token_id, int pos,
         /* Save residual for FFN shortcut */
         memcpy(saved, rin->residual, sd * sizeof(int16_t));
 
+        /* Pre-LN: apply ln2 before FFN */
+        if (has_ln) rin_layer_norm(rin->residual, dim, rin->ln_gamma[l * 2 + 1], rin->ln_beta[l * 2 + 1]);
+
         /* FFN */
         rin_tfm_ffn(rin, rin->residual, dim, ffn_dim, l);
 
@@ -468,14 +606,19 @@ static void rin_tfm_step(RIN_Internal *rin, int token_id, int pos,
             rin->residual[j] = clamp_q15((int32_t)saved[j] + rin->ffn_buf[j]);
     }
 
-    /* Unembed: GEMV(output_W, residual_int8) → logits */
+    /* Final ln_f before unembed */
+    if (has_ln) rin_layer_norm(rin->residual, dim, rin->ln_gamma[num_layers * 2], rin->ln_beta[num_layers * 2]);
+
+    /* Unembed: GEMV(output_W, residual_int8) → logits in Q15 */
     q15_to_int8(rin->residual, rin->buf0, dim);
+    int32_t sum_x_out = sum_int8(rin->buf0, dim);
+    float sc_out = rin->model.scale[0];
     int od = vocab_size;
     gemv_kernel(rin->model.W[0], od, dim, rin->buf0, rin->gemv_buf);
     for (int j = 0; j < od && j < RIN_MAX_VOCAB; j++) {
-        int32_t v = rin->gemv_buf[j] * (int32_t)rin->model.scale[0] / 256 + rin->model.bias[0][j];
-        if (v < -32768) v = -32768;
-        if (v > 32767) v = 32767;
+        float v = (rin->gemv_buf[j] * sc_out - 128.0f * sc_out * sum_x_out + rin->model.bias[0][j]) * 256.0f;
+        if (v < -32768.0f) v = -32768.0f;
+        if (v > 32767.0f) v = 32767.0f;
         logits[j] = (int16_t)v;
     }
 }
@@ -492,11 +635,11 @@ static int rin_output_layer(RIN_Internal *rin, RIN_Context *ctx,
 
     gemv_kernel(W, od, last_dim, in, rin->gemv_buf);
 
-    int16_t sc = m->scale[m->num_layers - 1];
-    int16_t *bs = m->bias[m->num_layers - 1];
+    float sc = m->scale[m->num_layers - 1];
+    float *bs = m->bias[m->num_layers - 1];
     int8_t logits[RIN_MAX_VOCAB];
     for (int i = 0; i < od; i++) {
-        int32_t v = (int32_t)rin->gemv_buf[i] * sc / 256 + bs[i];
+        int32_t v = (int32_t)(rin->gemv_buf[i] * sc + bs[i]);
         if (v < -127) v = -127;
         if (v > 127) v = 127;
         logits[i] = (int8_t)v;
@@ -522,37 +665,25 @@ static int rin_output_layer(RIN_Internal *rin, RIN_Context *ctx,
  * LOADERS
  * ============================================================================ */
 static int load_layer_weights(FILE *f, int prev_dim, int this_dim,
-                               uint8_t **W, int16_t *scale_out,
-                               int16_t **bias_out, int scale_first) {
+                               uint8_t **W, float *scale_out,
+                               float **bias_out, int scale_first) {
     size_t sz = (size_t)this_dim * prev_dim;
     *W = (uint8_t*)aligned_alloc(32, sz);
     if (!*W) return -1;
 
     if (scale_first) {
-        float sf;
-        if (fread(&sf, 4, 1, f) != 1) return -1;
-        if (sf < 1e-10f) sf = 1e-10f;
-        *scale_out = (int16_t)(sf * 256.0f + 0.5f);
-        if (*scale_out < 1) *scale_out = 1;
+        if (fread(scale_out, 4, 1, f) != 1) return -1;
+        if (*scale_out < 1e-10f) *scale_out = 1e-10f;
         if (fread(*W, 1, sz, f) != sz) return -1;
     } else {
         if (fread(*W, 1, sz, f) != sz) return -1;
-        float sf;
-        if (fread(&sf, 4, 1, f) != 1) return -1;
-        if (sf < 1e-10f) sf = 1e-10f;
-        *scale_out = (int16_t)(sf * 256.0f + 0.5f);
-        if (*scale_out < 1) *scale_out = 1;
+        if (fread(scale_out, 4, 1, f) != 1) return -1;
+        if (*scale_out < 1e-10f) *scale_out = 1e-10f;
     }
 
-    *bias_out = (int16_t*)aligned_alloc(32, (size_t)this_dim * sizeof(int16_t));
+    *bias_out = (float*)aligned_alloc(32, (size_t)this_dim * sizeof(float));
     if (!*bias_out) return -1;
-    float *bf = (float*)malloc((size_t)this_dim * 4);
-    if (fread(bf, 4, this_dim, f) != (size_t)this_dim) { free(bf); return -1; }
-    float sf2 = (*scale_out) / 256.0f;
-    if (sf2 < 1e-10f) sf2 = 1e-10f;
-    for (int j = 0; j < this_dim; j++)
-        (*bias_out)[j] = (int16_t)(bf[j] / sf2 + 0.5f);
-    free(bf);
+    if (fread(*bias_out, 4, this_dim, f) != (size_t)this_dim) { free(*bias_out); return -1; }
     return 0;
 }
 
@@ -599,37 +730,27 @@ static int load_transformer_header(FILE *f, int *num_layers, int *dim,
 }
 
 static int load_transformer_weight_layer_bias(FILE *f, int rows, int cols,
-                                               uint8_t **W, int16_t *scale_out,
-                                               int16_t **bias_out, int bias_count);
+                                                uint8_t **W, float *scale_out,
+                                                float **bias_out, int bias_count);
 
 static int load_transformer_weight_layer(FILE *f, int rows, int cols,
-                                          uint8_t **W, int16_t *scale_out,
-                                          int16_t **bias_out) {
+                                           uint8_t **W, float *scale_out,
+                                           float **bias_out) {
     return load_transformer_weight_layer_bias(f, rows, cols, W, scale_out, bias_out, rows);
 }
 
 static int load_transformer_weight_layer_bias(FILE *f, int rows, int cols,
-                                                uint8_t **W, int16_t *scale_out,
-                                                int16_t **bias_out, int bias_count) {
+                                                uint8_t **W, float *scale_out,
+                                                float **bias_out, int bias_count) {
     size_t sz = (size_t)rows * cols;
     *W = (uint8_t*)malloc(sz);
     if (!*W) return -1;
-    float sf;
-    if (fread(&sf, 4, 1, f) != 1) { free(*W); return -1; }
-    if (sf < 1e-10f) sf = 1e-10f;
-    *scale_out = (int16_t)(sf * 256.0f + 0.5f);
-    if (*scale_out < 1) *scale_out = 1;
+    if (fread(scale_out, 4, 1, f) != 1) { free(*W); return -1; }
+    if (*scale_out < 1e-10f) *scale_out = 1e-10f;
     if (fread(*W, 1, sz, f) != sz) { free(*W); return -1; }
-    *bias_out = (int16_t*)malloc((size_t)bias_count * sizeof(int16_t));
+    *bias_out = (float*)malloc((size_t)bias_count * sizeof(float));
     if (!*bias_out) { free(*W); return -1; }
-    float *bf = (float*)malloc((size_t)bias_count * 4);
-    if (!bf) { free(*W); free(*bias_out); return -1; }
-    if (fread(bf, 4, bias_count, f) != (size_t)bias_count) { free(bf); free(*W); free(*bias_out); return -1; }
-    float sf2 = (*scale_out) / 256.0f;
-    if (sf2 < 1e-10f) sf2 = 1e-10f;
-    for (int j = 0; j < bias_count; j++)
-        (*bias_out)[j] = (int16_t)(bf[j] / sf2 + 0.5f);
-    free(bf);
+    if (fread(*bias_out, 4, bias_count, f) != (size_t)bias_count) { free(*W); free(*bias_out); return -1; }
     return 0;
 }
 
@@ -711,6 +832,27 @@ RIN_Status RIN_LoadWeights(RIN_Context* ctx, const char* path) {
                 fclose(f); free(rin); return RIN_STATUS_ERROR_WEIGHTS;
             }
 
+            /* Load LayerNorm parameters */
+            {
+                uint32_t ln_count;
+                if (fread(&ln_count, 4, 1, f) != 1) {
+                    /* File may not have LN data (older format) — fall through */
+                    ln_count = 0;
+                }
+                rin->num_ln_sets = (int)ln_count;
+                for (int i = 0; i < (int)ln_count; i++) {
+                    rin->ln_gamma[i] = (int16_t*)aligned_alloc(32, (size_t)dim * sizeof(int16_t));
+                    rin->ln_beta[i] = (int16_t*)aligned_alloc(32, (size_t)dim * sizeof(int16_t));
+                    if (!rin->ln_gamma[i] || !rin->ln_beta[i]) {
+                        fclose(f); free(rin); return RIN_STATUS_ERROR_MEMORY;
+                    }
+                    if (fread(rin->ln_gamma[i], sizeof(int16_t), dim, f) != (size_t)dim ||
+                        fread(rin->ln_beta[i], sizeof(int16_t), dim, f) != (size_t)dim) {
+                        fclose(f); free(rin); return RIN_STATUS_ERROR_WEIGHTS;
+                    }
+                }
+            }
+
             /* Load character set (vocab_size bytes, padded to 4-byte) */
             rin->char_set = (char*)calloc(vocab_size + 1, 1);
             if (rin->char_set) {
@@ -755,6 +897,45 @@ RIN_Status RIN_LoadWeights(RIN_Context* ctx, const char* path) {
             rin->k_cache = (int16_t*)calloc(cache_sz, sizeof(int16_t));
             rin->v_cache = (int16_t*)calloc(cache_sz, sizeof(int16_t));
             rin->kv_pos = 0;
+
+#ifdef RIN_USE_BHRR
+            /* BHRR attention: allocate per-layer, per-head contexts */
+            {
+                int S = RIN_BHRR_SLOTS;
+                rin->bhrr.num_layers = num_layers;
+                rin->bhrr.num_heads = num_heads;
+                rin->bhrr.head_dim = hd;
+                rin->bhrr.num_slots = S;
+
+                size_t total_heads = (size_t)num_layers * num_heads;
+                size_t slot_sz = total_heads * S * hd * sizeof(int32_t);
+                size_t key_sz  = total_heads * S * hd * sizeof(int16_t);
+
+                rin->bhrr.slot_bufs = (int32_t*)calloc(slot_sz, 1);
+                rin->bhrr.key_bufs  = (int16_t*)calloc(key_sz, 1);
+                rin->bhrr.heads     = (RinBHRR*)calloc(total_heads, sizeof(RinBHRR));
+
+                rin->bhrr_qsign = (int16_t*)calloc(dim, sizeof(int16_t));
+                rin->bhrr_ksign = (int16_t*)calloc(dim, sizeof(int16_t));
+                rin->bhrr_vsign = (int16_t*)calloc(dim, sizeof(int16_t));
+
+                if (!rin->bhrr.slot_bufs || !rin->bhrr.key_bufs ||
+                    !rin->bhrr.heads || !rin->bhrr_qsign ||
+                    !rin->bhrr_ksign || !rin->bhrr_vsign)
+                    return RIN_STATUS_ERROR_MEMORY;
+
+                int32_t* sp = rin->bhrr.slot_bufs;
+                int16_t* kp = rin->bhrr.key_bufs;
+                for (int li = 0; li < num_layers; li++) {
+                    for (int h = 0; h < num_heads; h++) {
+                        int idx = li * num_heads + h;
+                        rin_bhrr_init(&rin->bhrr.heads[idx], sp, kp, S, hd, 42 + idx);
+                        sp += S * hd;
+                        kp += S * hd;
+                    }
+                }
+            }
+#endif
 
             if (!rin->buf0 || !rin->buf1 || !rin->gemv_buf ||
                 !rin->q_buf || !rin->k_buf || !rin->v_buf ||
@@ -858,6 +1039,13 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
         /* Reset KV cache for new sequence */
         rin->kv_pos = 0;
 
+#ifdef RIN_USE_BHRR
+        /* Reset all BHRR contexts for new sequence */
+        for (int li = 0; li < num_tfm_layers; li++)
+            for (int h = 0; h < nh; h++)
+                rin_bhrr_clear(&rin->bhrr.heads[li * nh + h]);
+#endif
+
         /* Cap input to max_seq_len */
         uint32_t capped_input = num_input;
         if (capped_input > (uint32_t)rin->max_seq_len)
@@ -865,14 +1053,12 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
 
         /* Process prefix tokens */
         int16_t logits_buf[RIN_MAX_VOCAB];
-        uint32_t last_token_id = 0;
 
         for (uint32_t i = 0; i < capped_input; i++) {
             int tid = (int)input_ids[i];
             if (tid >= vs) tid = 0;
             rin_tfm_step(rin, tid, (int)i, logits_buf, dim,
                          num_tfm_layers, nh, fd, vs);
-            last_token_id = (uint32_t)tid;
         }
 
         /* Generate additional tokens */
@@ -893,49 +1079,15 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
             }
             ctx->last_logits_dim = od;
 
-            /* Sample next token using PTSoftmax */
-            uint32_t rnd = (uint32_t)(g * 12345 + 67890);
-            int fd2 = open("/dev/urandom", O_RDONLY);
-            if (fd2 >= 0) { read(fd2, &rnd, sizeof(rnd)); close(fd2); }
-            uint8_t probs_tmp[RIN_MAX_VOCAB];
-            int8_t lgts[RIN_MAX_VOCAB];
-            for (int j = 0; j < od; j++) lgts[j] = (int8_t)(logits_buf[j] < -127 ? -127 : (logits_buf[j] > 127 ? 127 : logits_buf[j]));
-            /* Max-subtraction for numerical stability */
-            int8_t max_lg = lgts[0];
-            for (int j = 1; j < od; j++) if (lgts[j] > max_lg) max_lg = lgts[j];
-            for (int j = 0; j < od; j++) lgts[j] -= max_lg;
-            RIN_PTSoftmax_Table pt;
-            RIN_PTSoftmax_InitTable(&pt, 32);
-            uint32_t total_exp = 0;
-            for (int j = 0; j < od; j++) {
-                uint32_t e = RIN_PTSoftmax_Lookup(&pt, lgts[j]);
-                total_exp += e;
-                probs_tmp[j] = 0;
-            }
-            if (total_exp > 0) {
-                /* Manual softmax to avoid Q16 saturation bug */
-                for (int j = 0; j < od; j++) {
-                    uint32_t e = RIN_PTSoftmax_Lookup(&pt, lgts[j]);
-                    probs_tmp[j] = (uint8_t)((e * 255ULL) / total_exp);
-                }
-            } else {
-                for (int j = 0; j < od; j++) probs_tmp[j] = 255 / od;
-            }
-            uint32_t cum = 0;
-            uint16_t rnd16 = (uint16_t)(rnd & 0xFFFF);
-            uint32_t target = ((uint32_t)rnd16 * 255) / 65535;
-            int sampled = od - 1;
-            for (int j = 0; j < od; j++) {
-                cum += probs_tmp[j];
-                if (cum > target) { sampled = j; break; }
-            }
-
+            /* Select token: use argmax for deterministic comparison */
+            int sampled = 0;
+            for (int j = 1; j < od; j++) if (logits_buf[j] > logits_buf[sampled]) sampled = j;
             generated[g] = (uint32_t)sampled;
             num_gen++;
 
-            /* Run next step with sampled token */
+            /* Feed sampled token into model for next prediction */
             if (g < max_out - 1) {
-                int next_pos = (int)(num_input + g + 1);
+                int next_pos = (int)(num_input + g);
                 rin_tfm_step(rin, sampled, next_pos, logits_buf, dim,
                              num_tfm_layers, nh, fd, vs);
             }
@@ -1042,11 +1194,11 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
         for (int li = 0; li < num_hidden; li++) {
             int K = (li == 0) ? m->input_dim : m->layer_dims[li-1];
             int M = m->layer_dims[li];
-            int16_t sc = m->scale[li];
-            int16_t *bs = m->bias[li];
+            float sc = m->scale[li];
+            float *bs = m->bias[li];
             gemv_kernel(m->W[li], M, K, in, rin->gemv_buf);
             for (int j = 0; j < M; j++) {
-                int32_t v = (rin->gemv_buf[j] * 256) / sc + bs[j];
+                int32_t v = (int32_t)(rin->gemv_buf[j] * 256.0f / sc + bs[j]);
                 if (v < 0) v = 0;
                 if (v > 255) v = 255;
                 out[j] = (int8_t)(v - 128);
@@ -1071,7 +1223,7 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
         od = m->output_dim;
         const uint8_t *W = m->W[m->num_layers - 1];
         gemv_kernel(W, od, last_dim, in, rin->gemv_buf);
-        int16_t *bs = m->bias[m->num_layers - 1];
+        float *bs = m->bias[m->num_layers - 1];
         int best = 0;
         uint8_t best_v = 0;
         for (int i = 0; i < od; i++) {
@@ -1312,6 +1464,10 @@ void RIN_Destroy_Internal(RIN_Context* ctx) {
             free(rin->model.W[0]);  /* unembedding */
             free(rin->model.bias[0]);
             free(rin->pos_embed);
+            for (int i = 0; i < rin->num_ln_sets; i++) {
+                free(rin->ln_gamma[i]);
+                free(rin->ln_beta[i]);
+            }
             free(rin->q_buf); free(rin->k_buf); free(rin->v_buf);
             free(rin->attn_buf); free(rin->residual); free(rin->ffn_buf);
             free(rin->k_cache); free(rin->v_cache);
