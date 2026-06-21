@@ -12,7 +12,7 @@ THOR_LIB : str
 Library search order
 --------------------
 1. ``THOR_LIB`` environment variable.
-2. ``<package_root>/../librin.so`` (installed next to the ``thor`` package).
+2. ``<package_root>/../librin.so`` (installed next to the ``rin`` package).
 3. Default system linker paths (``ctypes.CDLL("librin.so")``).
 """
 
@@ -297,9 +297,9 @@ def _resolve_library_path() -> str:
 
     Resolution order
     -----------------
-    1. ``THOR_LIB`` environment variable.
-    2. ``<package_root>/../librin.so`` (next to the ``thor`` package).
-    3. ``"librin.so"`` (system library path).
+     1. ``THOR_LIB`` environment variable.
+     2. ``<package_root>/../librin.so`` (next to the ``rin`` package).
+     3. ``"librin.so"`` (system library path).
     """
     env_path = os.environ.get("THOR_LIB")
     if env_path:

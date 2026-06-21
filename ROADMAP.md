@@ -6,7 +6,7 @@
 - [x] Clean repo organization (stable/experimental/docs)
 - [x] Honest README with verified claims only
 - [ ] CI/CD with GitHub Actions publishing benchmark results
-- [ ] Docker image with THOR pre-compiled
+- [ ] Docker image with RIN pre-compiled
 - [ ] Third-party: invite 3 engineers to run `bench-all.sh`
 
 ## Sprint 2 — Real-world demo (Days 31-60)
@@ -21,21 +21,21 @@
 - [ ] Export to .rin + publish on HuggingFace
 - [ ] Meaningful text generation demo
 - [ ] Raspberry Pi 4 benchmark and demo
-- [ ] `thor run` end-to-end working with downloaded model
+- [ ] `rin run` end-to-end working with downloaded model
 
 ## Sprint 3 — External validation (Days 61-90)
 
 - [ ] Publish third-party benchmark results
 - [ ] Fix Python/C weight format compatibility
 - [ ] Lock CPU frequency for reproducible benchmarks
-- [ ] Add `--json` flag to `thor bench` for CI
+- [ ] Add `--json` flag to `rin bench` for CI
 - [ ] Open issues for community reproduction
 - [ ] Move 1-2 experimental components to stable based on validation
 
 ## Future
 
-- [ ] WebAssembly demo page with `thor_wasm_*` kernels
-- [ ] `thor chat` interactive mode
+- [ ] WebAssembly demo page with `rin_wasm_*` kernels
+- [ ] `rin chat` interactive mode
 - [ ] ARM NEON runtime detection and kernel selection
 - [ ] Power budget controller integration
-- [ ] Model hub (`thor pull model-name`)
+- [ ] Model hub (`rin pull model-name`)

@@ -2,7 +2,7 @@
 """RIN import — convert external model formats to RIN.
 
 Usage:
-    thor import <model> --output <model.rin> [--type auto|pytorch|onnx|gguf]
+    rin import <model> --output <model.rin> [--type auto|pytorch|onnx|gguf]
                       [--quantize int8|int4|fp16]
 
 Detects source format from file extension and dispatches to the appropriate
@@ -96,7 +96,7 @@ def _convert_pytorch(src: str, dst: str, quantize: str | None) -> None:
     except ImportError as e:
         print(
             f"{RED}Error: PyTorch importer not available. "
-            f"Install 'torch' and ensure thor.importer is installed.\n"
+            f"Install 'torch' and ensure rin.importer is installed.\n"
             f"  Details: {e}{RESET}",
             file=sys.stderr,
         )
@@ -113,7 +113,7 @@ def _convert_onnx(src: str, dst: str, quantize: str | None) -> None:
     except ImportError as e:
         print(
             f"{RED}Error: ONNX importer not available. "
-            f"Install 'onnx' and ensure thor.importer is installed.\n"
+            f"Install 'onnx' and ensure rin.importer is installed.\n"
             f"  Details: {e}{RESET}",
             file=sys.stderr,
         )

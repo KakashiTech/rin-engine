@@ -40,7 +40,7 @@ jobs:
         run: rin bench --mode mlp --warmup 5 --iterations 10
 
       - name: Check backend
-        run: python3 -c "from thor.runtime.engine import ThorEngine; print(ThorEngine.backend_name())"
+        run: python3 -c "from rin import RinEngine; print(RinEngine.backend_name())"
 
   lint:
     runs-on: ubuntu-22.04
@@ -50,9 +50,9 @@ jobs:
       - name: Lint C with cppcheck
         run: |
           sudo apt-get install -y -qq cppcheck
-          cppcheck --enable=warning --suppress=unusedFunction --suppress=missingIncludeSystem --error-exitcode=1 rin_core.c thor_api.c _cengine.c main.c rin_test.c
+          cppcheck --enable=warning --suppress=unusedFunction --suppress=missingIncludeSystem --error-exitcode=1 lib/src/rin_core.c lib/src/rin_api.c _cengine.c lib/src/main.c lib/src/rin_test.c
 
       - name: Lint Python with ruff
         run: |
           pip install -q ruff
-          ruff check thor/ --ignore=E501,E731 --quiet || true  # non-blocking until codebase is clean
+          ruff check rin/ --ignore=E501,E731 --quiet || true  # non-blocking until codebase is clean

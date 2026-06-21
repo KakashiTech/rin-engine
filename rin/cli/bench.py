@@ -2,7 +2,7 @@
 """RIN bench — benchmark inference speed.
 
 Usage:
-    thor bench <model> [--mode <MODE>] [--warmup <N>] [--iterations <N>]
+    rin bench <model> [--mode <MODE>] [--warmup <N>] [--iterations <N>]
                       [--all-modes]
 """
 

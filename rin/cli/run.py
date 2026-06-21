@@ -2,7 +2,7 @@
 """RIN run — load a model and generate text.
 
 Usage:
-    thor run <model> [--prompt <text>] [--gen <N>] [--mode <MODE>]
+    rin run <model> [--prompt <text>] [--gen <N>] [--mode <MODE>]
                    [--temp <T>] [--top-k <K>] [--top-p <P>]
 """
 

@@ -39,7 +39,7 @@ fi
 # ----- Detect hardware -----
 CPU_MODEL=$(grep "model name" /proc/cpuinfo | head -1 | sed 's/.*: //')
 CPU_COUNT=$(nproc)
-THOR_VERSION=$(python3 -c "from rinin.runtime.engine import ThorEngine; print(ThorEngine.version())" 2>/dev/null || echo "unknown")
+THOR_VERSION=$(python3 -c "from rin import RinEngine; print(RinEngine.version())" 2>/dev/null || echo "unknown")
 
 echo "============================================="
 echo " RIN Engine Benchmark Suite"
@@ -59,9 +59,9 @@ echo "[1] RIN Engine INT8 (Python API) ..."
 THOR_TPS=$(python3 -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
-from rinin.runtime.engine import ThorEngine
+from rin import RinEngine
 
-eng = ThorEngine('$MODEL', mode='transformer')
+eng = RinEngine('$MODEL', mode='transformer')
 try:
     result = eng.benchmark(mode='transformer', warmup=$WARMUP, iterations=$ITERATIONS)
     print(f'{result[\"tokens_per_second\"]:.1f}')
@@ -71,9 +71,9 @@ finally:
 THOR_MS=$(python3 -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
-from rinin.runtime.engine import ThorEngine
+from rin import RinEngine
 
-eng = ThorEngine('$MODEL', mode='transformer')
+eng = RinEngine('$MODEL', mode='transformer')
 try:
     result = eng.benchmark(mode='transformer', warmup=$WARMUP, iterations=$ITERATIONS)
     print(f'{result[\"ms_per_token\"]:.3f}')
@@ -87,9 +87,9 @@ echo "[2] RIN Engine INT8 energy ..."
 THOR_ENERGY=$(python3 -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
-from rinin.runtime.engine import ThorEngine
+from rin import RinEngine
 
-eng = ThorEngine('$MODEL', mode='transformer')
+eng = RinEngine('$MODEL', mode='transformer')
 try:
     eng.generate('Hello world', max_tokens=10)
     energy = eng.energy_joules

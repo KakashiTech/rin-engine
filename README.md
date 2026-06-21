@@ -4,15 +4,15 @@
 
 RIN Engine is an experimental C runtime + Python CLI for running neural network inference on CPU. It explores techniques for energy-efficient computation: arena allocation (zero malloc during inference), RAPL-based energy metering, and alternative normalization/softmax implementations using integer arithmetic.
 
-[![CI](https://github.com/thor-ai/rinin/actions/workflows/ci.yml/badge.svg)](https://github.com/thor-ai/rinin/actions/workflows/ci.yml)
+[![CI](https://github.com/KakashiTech/rin-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/KakashiTech/rin-engine/actions/workflows/ci.yml)
 
 ---
 
 ## Quick start
 
 ```bash
-git clone https://github.com/thor-ai/rinin.git
-cd thor
+git clone https://github.com/KakashiTech/rin-engine.git
+cd rin-engine
 make shared
 pip install -e .
 rin bench --mode transformer
@@ -33,9 +33,9 @@ rin run model.rin --prompt "Hello, world!" --max-tokens 50
 | **Arena allocator** | O(1) allocation, O(1) reset, zero malloc/free during inference | `rin_arena.h` |
 | **RAPL energy meter** | Per-inference energy measurement via Intel/AMD RAPL MSRs | `rin_energy_meter.h` |
 | **5 inference modes** | MLP, SNN, ATTN, RIN, Transformer | `rin run --mode` |
-| **Python CLI** | `thor {run,bench,energy,inspect,import}` | `rin/` |
+| **Python CLI** | `rin {run,bench,energy,inspect,import}` | `rin/` |
 | **C test suite** | 8 quantitative validation tests, 0 failures | `make test` |
-| **Backend router** | Auto-selects native CPython ext → ctypes fallback | `thor/_backend.py` |
+| **Backend router** | Auto-selects native CPython ext → ctypes fallback | `rin/_backend.py` |
 
 ---
 
@@ -86,9 +86,9 @@ rin import model.pth --output model.rin
 ## Python API
 
 ```python
-from rin import ThorEngine
+from rin import RinEngine
 
-with ThorEngine("model.rin", mode="mlp") as engine:
+with RinEngine("model.rin", mode="mlp") as engine:
     output = engine.generate("Hello", max_tokens=50)
     print(output)
     print(f"Energy: {engine.energy_joules:.3f} J")
@@ -99,15 +99,12 @@ with ThorEngine("model.rin", mode="mlp") as engine:
 ## Project structure
 
 ```
-thor/
-├── thor/              ← Python package (CLI + runtime)
-├── rin_core.c/.h      ← C inference engine (1,334 lines)
-├── thor_api.c/.h      ← Public C API (33 functions)
+rin-engine/
+├── rin/               ← Python package (CLI + runtime)
+├── lib/               ← C inference engine + headers
 ├── _cengine.c         ← CPython C extension
-├── rin_arena.h        ← Arena allocator
-├── rin_energy_meter.h ← RAPL energy metering
-├── rin_test_suite.h   ← Validation test framework
 ├── experimental/      ← Research prototypes
+├── benchmarks/        ← Benchmark scripts and data
 ├── bench-all.sh       ← Reproducible benchmark
 ├── Makefile           ← Build system
 └── setup.py           ← Python package build
@@ -122,7 +119,7 @@ thor/
 | Experimental CPU inference runtime | A production ML deployment framework |
 | Arena + RAPL + CLI | A drop-in PyTorch replacement |
 | Research prototype for novel techniques | A validated scientific contribution |
-| Honest about verified vs unverified claims | Revolutionary or hyperbolic |
+| Honest about verified vs unverified claims | A drop-in PyTorch replacement or production deployment framework |
 
 ---
 

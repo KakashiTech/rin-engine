@@ -2,7 +2,7 @@
 """RIN energy — energy consumption profiling.
 
 Usage:
-    thor energy <model> [--mode <MODE>] [--runs <N>]
+    rin energy <model> [--mode <MODE>] [--runs <N>]
 
 Measures energy usage per inference run using the RIN runtime's built-in
 RAPL energy counters (joules), computes average power draw, and estimates

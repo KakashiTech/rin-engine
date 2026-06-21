@@ -2,7 +2,7 @@
 """RIN inspect — display detailed model information.
 
 Usage:
-    thor inspect <model>
+    rin inspect <model>
 
 Shows architecture metadata, layer dimensions, parameter count, memory
 footprint, available execution modes, and a sample of the charset.
