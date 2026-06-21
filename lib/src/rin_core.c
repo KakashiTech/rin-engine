@@ -1,14 +1,14 @@
 /*
  * rin_core.c - RIN Inference Engine REAL
  *
- * Pipeline verdadero usando módulos RIN con 3 modos:
+ * True pipeline using RIN modules with 3 modes:
  *   MLP_ARGMAX: GEMV → BSPN → ReLU → ... → PTsoftmax → Argmax
  *   MLP_SAMPLE: GEMV → BSPN → ReLU → ... → PTsoftmax → Sample(token)
  *   SNN:        GEMV → LIF(×timesteps) → BSPN → ... → PTsoftmax → Argmax
  *   ATTN:       GEMV → Attention → BSPN → ... → PTsoftmax → Sample(token)
  *
- * Backend: RIN INT8 SIMD para GEMV (máximo rendimiento en Zen 3)
- * Integración: BSPN + PTsoftmax + LIF + Attention + KV Cache + RAPL
+ * Backend: RIN INT8 SIMD for GEMV (maximum performance on Zen 3)
+ * Integration: BSPN + PTsoftmax + LIF + Attention + KV Cache + RAPL
  */
 
 #include "rin_core.h"
@@ -46,7 +46,7 @@ typedef struct {
 #define RIN_MAX_SAVED 4096
 
 /* ============================================================================
- * MODELO RIN
+ * RIN MODEL
  * ============================================================================ */
 typedef struct {
     int input_dim, output_dim, num_layers;
@@ -59,7 +59,7 @@ typedef struct {
 } RIN_Model;
 
 /* ============================================================================
- * KV CACHE PARA ATENCIÓN
+ * KV CACHE FOR ATTENTION
  * ============================================================================ */
 typedef struct {
     int16_t *K, *V;       /* Q15 cached keys/values */
@@ -68,7 +68,7 @@ typedef struct {
 } RIN_KVCache;
 
 /* ============================================================================
- * BUFFERS DE INFERENCIA
+ * INFERENCE BUFFERS
  * ============================================================================ */
 typedef struct {
     RIN_Model model;
@@ -76,11 +76,12 @@ typedef struct {
     int32_t *gemv_buf;
     RIN_KVCache kv_cache;
     int max_dim;
+    RIN_EnergyMeter meter;
     uint64_t total_energy_uj;
-    /* RIN heritage: output layer separado (formato original) */
-    uint8_t *thor_W_out;
-    float thor_scale_out;
-    float *thor_bias_out;
+    /* RIN heritage: separate output layer (original format) */
+    uint8_t *rin_W_out;
+    float rin_scale_out;
+    float *rin_bias_out;
 
     /* Transformer */
     int architecture;          /* 0=MLP, 1=Transformer */
@@ -244,25 +245,25 @@ static void rin_snn_layer(RIN_Internal *rin, RIN_Context *ctx, int li,
 }
 
 /* ============================================================================
- * ATENCIÓN CAUSAL (single-head, Q15)
+ * CAUSAL ATTENTION (single-head, Q15)
  * ============================================================================ */
 static void rin_attention_block(int16_t *x, int dim, int kv_pos,
                                  RIN_KVCache *cache, int8_t *out) {
     /* x: vector Q15 de entrada (dimensiones del modelo)
-     * Atención causal: output[i] = sum_{j<=i} softmax(Q·K_j/√d) · V_j
+     * Causal attention: output[i] = sum_{j<=i} softmax(Q·K_j/√d) · V_j
      * Para el paso actual kv_pos, calculamos Q para x, K/V se guardan en cache
      */
 
-    /* Proyecciones simples: Q=Wq*x, K=Wk*x, V=Wv*x
-     * Para demo, usamos transformación identidad + noise */
+    /* Simple projections: Q=Wq*x, K=Wk*x, V=Wv*x
+     * For demo, we use identity transformation + noise */
     int16_t Q[MAX_ATTN_DIM], K[MAX_ATTN_DIM], V[MAX_ATTN_DIM];
     for (int i = 0; i < dim; i++) {
-        Q[i] = x[i] + (int16_t)(i * 17);     /* simula proyección */
+        Q[i] = x[i] + (int16_t)(i * 17);     /* simulate projection */
         K[i] = x[i] + (int16_t)(i * 31);
         V[i] = x[i] + (int16_t)(i * 53);
     }
 
-    /* Guardar K,V en cache */
+    /* Store K,V in cache */
     if (kv_pos < cache->max_seq) {
         int cdim = cache->dim;
         for (int i = 0; i < dim && i < cdim; i++) {
@@ -272,7 +273,7 @@ static void rin_attention_block(int16_t *x, int dim, int kv_pos,
     }
     int seq_len = kv_pos + 1;
 
-    /* Atención: scores[pos][i] = Q[pos] · K[i] */
+    /* Attention: scores[pos][i] = Q[pos] · K[i] */
     int32_t scores[MAX_ATTN_DIM];
     int cdim = cache->dim;
     int nd = dim < cdim ? dim : cdim;
@@ -645,7 +646,7 @@ static int rin_output_layer(RIN_Internal *rin, RIN_Context *ctx,
         logits[i] = (int8_t)v;
     }
 
-    /* Guardar logits en ctx para RIN_GenerateToken */
+    /* Store logits in ctx for RIN_GenerateToken */
     memcpy(ctx->last_logits, logits, od);
     ctx->last_logits_dim = od;
 
@@ -687,7 +688,7 @@ static int load_layer_weights(FILE *f, int prev_dim, int this_dim,
     return 0;
 }
 
-static int load_thor_header(FILE *f, RIN_Model *m) {
+static int load_rin_legacy_header(FILE *f, RIN_Model *m) {
     fread(&m->input_dim, sizeof(int), 1, f);
     fread(&m->output_dim, sizeof(int), 1, f);
     fread(&m->num_layers, sizeof(int), 1, f);
@@ -757,7 +758,7 @@ static int load_transformer_weight_layer_bias(FILE *f, int rows, int cols,
 /* ============================================================================
  * RIN_LoadWeights
  * ============================================================================ */
-RIN_Status RIN_LoadWeights(RIN_Context* ctx, const char* path) {
+RinStatus RIN_LoadWeights(RIN_Context* ctx, const char* path) {
     if (!ctx || !path) return RIN_STATUS_ERROR_INVALID_INPUT;
 
     RIN_Internal *rin = (RIN_Internal*)calloc(1, sizeof(RIN_Internal));
@@ -774,7 +775,7 @@ RIN_Status RIN_LoadWeights(RIN_Context* ctx, const char* path) {
     rin->architecture = 0;
 
     if (!memcmp(magic, "THOR", 4)) {
-        if (load_thor_header(f, m)) { fclose(f); free(rin); return RIN_STATUS_ERROR_WEIGHTS; }
+        if (load_rin_legacy_header(f, m)) { fclose(f); free(rin); return RIN_STATUS_ERROR_WEIGHTS; }
     } else if (!memcmp(magic, "RIN1", 4)) {
         uint32_t version = read_u32(f);
         (void)version;
@@ -978,7 +979,7 @@ RIN_Status RIN_LoadWeights(RIN_Context* ctx, const char* path) {
     rin->gemv_buf = (int32_t*)aligned_alloc(32, alloc_sz);
     if (!rin->buf0 || !rin->buf1 || !rin->gemv_buf) return RIN_STATUS_ERROR_MEMORY;
 
-    /* Inicializar KV cache */
+    /* Initialize KV cache */
     int kv_dim = m->layer_dims[0];
     for (int i = 1; i < m->num_layers - 1; i++)
         if (m->layer_dims[i] > kv_dim) kv_dim = m->layer_dims[i];
@@ -995,7 +996,7 @@ RIN_Status RIN_LoadWeights(RIN_Context* ctx, const char* path) {
 /* ============================================================================
  * RIN_Inference
  * ============================================================================ */
-RIN_Status RIN_Inference(RIN_Context* ctx,
+RinStatus RIN_Inference(RIN_Context* ctx,
                           const uint32_t* input_ids,
                           uint32_t num_input,
                           uint32_t max_output,
@@ -1005,17 +1006,13 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
     RIN_Internal *rin = (RIN_Internal*)ctx->_internal;
     if (!rin || !rin->model.loaded) return RIN_STATUS_ERROR_WEIGHTS;
 
-    RIN_Model *m = &rin->model;
-    uint64_t t0 = RIN_DPTM_GetTimestampNs();
-
-    uint64_t rapl_before = 0;
-    int rapl_fd = open("/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj", O_RDONLY);
-    if (rapl_fd >= 0) {
-        char buf[64]; lseek(rapl_fd, 0, SEEK_SET);
-        int n = read(rapl_fd, buf, sizeof(buf)-1);
-        if (n > 0) { buf[n] = 0; rapl_before = strtoull(buf, NULL, 10); }
-        close(rapl_fd);
+    if (!rin->meter.initialized) {
+        RIN_EnergyMeter_Init(&rin->meter);
     }
+    RIN_Model *m = &rin->model;
+    RIN_EnergyMeasurement rin_meas;
+    RIN_EnergyMeter_StartMeasurement(&rin->meter, &rin_meas);
+    uint64_t t0 = RIN_DPTM_GetTimestampNs();
 
     int8_t *in = rin->buf0;
     int8_t *out = rin->buf1;
@@ -1118,9 +1115,9 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
 
     if (ctx->config.inference_mode == RIN_MODE_SNN) {
         /* === SNN MODE: LIF-based spiking pipeline === */
-        /* Usar gemv_buf como almacén de spikes (tiene max_dim*4 bytes) */
+        /* Use gemv_buf as spike storage (has max_dim*4 bytes) */
         int ts = ctx->config.timesteps;
-        int spike_frame = (size_t)rin->max_dim;   /* bytes por timestep */
+        int spike_frame = (size_t)rin->max_dim;   /* bytes per timestep */
         uint8_t *spikes_in = (uint8_t*)rin->gemv_buf;
         uint8_t *spikes_out = (uint8_t*)rin->gemv_buf + spike_frame * ts;
 
@@ -1190,7 +1187,7 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
         }
 
     } else if (ctx->config.inference_mode == RIN_MODE_THOR) {
-        /* RIN MODE: GEMV puro, misma semántica que thor_final.c */
+        /* RIN MODE: pure GEMV, same semantics as legacy rin_final.c */
         for (int li = 0; li < num_hidden; li++) {
             int K = (li == 0) ? m->input_dim : m->layer_dims[li-1];
             int M = m->layer_dims[li];
@@ -1218,7 +1215,7 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
     if (ctx->config.inference_mode == RIN_MODE_TRANSFORMER) {
         /* Already handled above */
     } else if (ctx->config.inference_mode == RIN_MODE_THOR) {
-        /* RIN: GEMV + bias + clamp[0,255], sin softmax */
+        /* RIN: GEMV + bias + clamp[0,255], no softmax */
         int last_dim = m->layer_dims[m->num_layers - 2];
         od = m->output_dim;
         const uint8_t *W = m->W[m->num_layers - 1];
@@ -1240,23 +1237,16 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
         predicted = rin_output_layer(rin, ctx, in, probs, &od);
     }
 
-    uint64_t rapl_after = 0;
-    rapl_fd = open("/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj", O_RDONLY);
-    if (rapl_fd >= 0) {
-        char buf[64]; lseek(rapl_fd, 0, SEEK_SET);
-        int n = read(rapl_fd, buf, sizeof(buf)-1);
-        if (n > 0) { buf[n] = 0; rapl_after = strtoull(buf, NULL, 10); }
-        close(rapl_fd);
-    }
+    double rin_joules = RIN_EnergyMeter_EndMeasurement(&rin->meter, &rin_meas, RIN_RAPL_DOMAIN_PKG);
+    uint64_t rin_energy_uj = (rin_joules > 0) ? (uint64_t)(rin_joules * 1e6) : 0;
+    rin->total_energy_uj += rin_energy_uj;
 
     uint64_t t1 = RIN_DPTM_GetTimestampNs();
 
     result->latency_ns = t1 - t0;
     result->num_tokens = 1;
     result->tokens_per_second = 1e9f / (float)(t1 - t0);
-    result->energy_joules = (rapl_after > rapl_before) ?
-        (double)(rapl_after - rapl_before) / 1e6 : 0;
-    rin->total_energy_uj += (rapl_after - rapl_before);
+    result->energy_joules = rin_joules > 0 ? rin_joules : 0;
 
     if (result->tokens) {
         result->tokens[0].id = (uint32_t)predicted;
@@ -1273,13 +1263,13 @@ RIN_Status RIN_Inference(RIN_Context* ctx,
 /* ============================================================================
  * RIN_GenerateToken - Sampling REAL
  *
- * Samplea desde la distribución de probabilidades de la última inferencia:
+ * Samples from the probability distribution of the last inference:
  *   1. Temperature: logits[i] = logits[i] / temperature
- *   2. Top-k: solo los k logits más altos
+ *   2. Top-k: only the k highest logits
  *   3. Top-p: solo el subconjunto con probabilidad acumulada > p
- *   4. Multinomial: samplea desde la distribución filtrada
+ *   4. Multinomial: sample from the filtered distribution
  * ============================================================================ */
-RIN_Status RIN_GenerateToken(RIN_Context* ctx, RIN_Token* next_token) {
+RinStatus RIN_GenerateToken(RIN_Context* ctx, RIN_Token* next_token) {
     if (!ctx || !next_token) return RIN_STATUS_ERROR_INVALID_INPUT;
     RIN_Internal *rin = (RIN_Internal*)ctx->_internal;
     if (!rin || !rin->model.loaded) return RIN_STATUS_ERROR_WEIGHTS;
@@ -1287,7 +1277,7 @@ RIN_Status RIN_GenerateToken(RIN_Context* ctx, RIN_Token* next_token) {
 
     int od = (int)ctx->last_logits_dim;
 
-    /* Copiar logits reales de la última inferencia */
+    /* Copy actual logits from last inference */
     int8_t logits[32];
     memcpy(logits, ctx->last_logits, od);
 
@@ -1303,14 +1293,14 @@ RIN_Status RIN_GenerateToken(RIN_Context* ctx, RIN_Token* next_token) {
         }
     }
 
-    /* Normalizar: restar el máximo para que max(logits)=0 */
+    /* Normalize: subtract max so that max(logits)=0 */
     int8_t max_l = logits[0];
     for (int i = 1; i < od; i++)
         if (logits[i] > max_l) max_l = logits[i];
     for (int i = 0; i < od; i++)
         logits[i] -= max_l;
 
-    /* Softmax en Q8 con tabla 2^x y division exacta */
+    /* Softmax in Q8 with 2^x table and exact division */
     uint32_t exp_vals[32];
     uint8_t probs[32];
     RIN_PTSoftmax_Table tbl;
@@ -1363,7 +1353,7 @@ RIN_Status RIN_GenerateToken(RIN_Context* ctx, RIN_Token* next_token) {
             if (probs[i] < threshold) probs[i] = 0;
     }
 
-    /* Multinomial sampling con verdadero random */
+    /* Multinomial sampling with true random */
     uint32_t rnd = 0;
     int fd = open("/dev/urandom", O_RDONLY);
     if (fd >= 0) { read(fd, &rnd, sizeof(rnd)); close(fd); }
@@ -1389,46 +1379,46 @@ RIN_Status RIN_GenerateToken(RIN_Context* ctx, RIN_Token* next_token) {
 }
 
 /* ============================================================================
- * Internal accessors for thor_api
+ * Internal accessors for rin_api
  * ============================================================================ */
-#ifndef THOR_EXPORT
+#ifndef RIN_EXPORT
 #if defined(_WIN32) || defined(_WIN64)
-#define THOR_EXPORT __declspec(dllexport)
+#define RIN_EXPORT __declspec(dllexport)
 #else
-#define THOR_EXPORT __attribute__((visibility("default")))
+#define RIN_EXPORT __attribute__((visibility("default")))
 #endif
 #endif
-THOR_EXPORT int rin_internal_num_layers(void *p) {
+RIN_EXPORT int rin_internal_num_layers(void *p) {
     RIN_Internal *rin = (RIN_Internal*)p;
     return rin ? rin->model.num_layers : 0;
 }
-THOR_EXPORT int rin_internal_input_dim(void *p) {
+RIN_EXPORT int rin_internal_input_dim(void *p) {
     RIN_Internal *rin = (RIN_Internal*)p;
     return rin ? rin->model.input_dim : 0;
 }
-THOR_EXPORT int rin_internal_output_dim(void *p) {
+RIN_EXPORT int rin_internal_output_dim(void *p) {
     RIN_Internal *rin = (RIN_Internal*)p;
     return rin ? rin->model.output_dim : 0;
 }
-THOR_EXPORT int rin_internal_num_heads(void *p) {
+RIN_EXPORT int rin_internal_num_heads(void *p) {
     RIN_Internal *rin = (RIN_Internal*)p;
     return rin ? rin->num_heads : 0;
 }
-THOR_EXPORT int rin_internal_ffn_dim(void *p) {
+RIN_EXPORT int rin_internal_ffn_dim(void *p) {
     RIN_Internal *rin = (RIN_Internal*)p;
     return rin ? rin->ffn_dim : 0;
 }
-THOR_EXPORT int rin_internal_max_seq_len(void *p) {
+RIN_EXPORT int rin_internal_max_seq_len(void *p) {
     RIN_Internal *rin = (RIN_Internal*)p;
     return rin ? rin->max_seq_len : 0;
 }
 
-THOR_EXPORT int rin_internal_num_layers(void *p);
-THOR_EXPORT int rin_internal_input_dim(void *p);
-THOR_EXPORT int rin_internal_output_dim(void *p);
-THOR_EXPORT int rin_internal_num_heads(void *p);
-THOR_EXPORT int rin_internal_ffn_dim(void *p);
-THOR_EXPORT int rin_internal_max_seq_len(void *p);
+RIN_EXPORT int rin_internal_num_layers(void *p);
+RIN_EXPORT int rin_internal_input_dim(void *p);
+RIN_EXPORT int rin_internal_output_dim(void *p);
+RIN_EXPORT int rin_internal_num_heads(void *p);
+RIN_EXPORT int rin_internal_ffn_dim(void *p);
+RIN_EXPORT int rin_internal_max_seq_len(void *p);
 
 /* ============================================================================
  * RIN_GetCharSet

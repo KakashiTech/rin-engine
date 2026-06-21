@@ -13,10 +13,10 @@ extern int rin_internal_num_heads(void *p);
 extern int rin_internal_ffn_dim(void *p);
 extern int rin_internal_max_seq_len(void *p);
 
-struct ThorContext {
+struct RinContext {
     RIN_Context ctx;
     int initialized;
-    ThorMode mode;
+    RinMode mode;
     float power_budget_watts;
 };
 
@@ -24,16 +24,16 @@ struct ThorContext {
  * Lifecycle
  * ============================================================================ */
 
-ThorContext* thor_create(void) {
-    ThorContext* tc = (ThorContext*)calloc(1, sizeof(ThorContext));
+RinContext* rin_create(void) {
+    RinContext* tc = (RinContext*)calloc(1, sizeof(RinContext));
     if (!tc) return NULL;
     tc->initialized = 0;
-    tc->mode = THOR_MODE_MLP;
+    tc->mode = RIN_MODE_MLP;
     tc->power_budget_watts = 0.0f;
     return tc;
 }
 
-void thor_destroy(ThorContext* tc) {
+void rin_destroy(RinContext* tc) {
     if (!tc) return;
     if (tc->initialized) {
         RIN_Destroy(&tc->ctx);
@@ -45,34 +45,34 @@ void thor_destroy(ThorContext* tc) {
  * Internal: setup config from model if available
  * ============================================================================ */
 
-static ThorStatus ensure_init(ThorContext* tc) {
-    if (!tc) return THOR_ERR_INVALID_INPUT;
+static RinStatus ensure_init(RinContext* tc) {
+    if (!tc) return RIN_STATUS_ERROR_INVALID_INPUT;
     if (!tc->initialized) {
         RIN_Config cfg = RIN_GetDefaultConfig();
         cfg.enable_energy_monitoring = 1;
-        cfg.inference_mode = (RIN_InferenceMode)tc->mode;
+        cfg.inference_mode = (RinMode)tc->mode;
         cfg.temperature = 0.8f;
         cfg.top_k = 40;
         cfg.top_p = 0.9f;
         if (RIN_Init(&tc->ctx, &cfg) != RIN_STATUS_OK)
-            return THOR_ERR_INIT;
+            return RIN_STATUS_ERROR_INIT;
         tc->initialized = 1;
     }
-    return THOR_OK;
+    return RIN_STATUS_OK;
 }
 
 /* ============================================================================
  * Model loading
  * ============================================================================ */
 
-ThorStatus thor_load_model(ThorContext* tc, const char* model_path) {
-    if (!tc || !model_path) return THOR_ERR_INVALID_INPUT;
+RinStatus rin_load_model(RinContext* tc, const char* model_path) {
+    if (!tc || !model_path) return RIN_STATUS_ERROR_INVALID_INPUT;
 
-    ThorStatus st = ensure_init(tc);
-    if (st != THOR_OK) return st;
+    RinStatus st = ensure_init(tc);
+    if (st != RIN_STATUS_OK) return st;
 
     if (RIN_LoadWeights(&tc->ctx, model_path) != RIN_STATUS_OK)
-        return THOR_ERR_WEIGHTS;
+        return RIN_STATUS_ERROR_WEIGHTS;
 
     /* Update context with actual model dimensions from loaded model */
     void *rin = tc->ctx._internal;
@@ -85,11 +85,11 @@ ThorStatus thor_load_model(ThorContext* tc, const char* model_path) {
         tc->ctx.config.ffn_dim = (uint32_t)rin_internal_ffn_dim(rin);
     }
 
-    return THOR_OK;
+    return RIN_STATUS_OK;
 }
 
-ThorStatus thor_get_model_info(ThorContext* tc, ThorModelInfo* info) {
-    if (!tc || !info || !tc->initialized) return THOR_ERR_NOT_INITIALIZED;
+RinStatus rin_get_model_info(RinContext* tc, RinModelInfo* info) {
+    if (!tc || !info || !tc->initialized) return RIN_STATUS_ERROR_NOT_INITIALIZED;
 
     RIN_ModelStats stats;
     RIN_GetModelStats(&tc->ctx, &stats);
@@ -103,41 +103,41 @@ ThorStatus thor_get_model_info(ThorContext* tc, ThorModelInfo* info) {
     info->num_parameters = stats.num_parameters;
     info->architecture = (uint32_t)(tc->ctx._internal ? 1 : 0);
     info->size_mb = (float)(stats.weights_size_bytes) / (1024.0f * 1024.0f);
-    return THOR_OK;
+    return RIN_STATUS_OK;
 }
 
 /* ============================================================================
  * Configuration
  * ============================================================================ */
 
-void thor_set_mode(ThorContext* tc, ThorMode mode) {
+void rin_set_mode(RinContext* tc, RinMode mode) {
     if (!tc) return;
     tc->mode = mode;
     if (tc->initialized)
-        tc->ctx.config.inference_mode = (RIN_InferenceMode)mode;
+        tc->ctx.config.inference_mode = (RinMode)mode;
 }
 
-ThorMode thor_get_mode(ThorContext* tc) {
-    if (!tc) return THOR_MODE_MLP;
+RinMode rin_get_mode(RinContext* tc) {
+    if (!tc) return RIN_MODE_MLP;
     return tc->mode;
 }
 
-void thor_set_temperature(ThorContext* tc, float temp) {
+void rin_set_temperature(RinContext* tc, float temp) {
     if (!tc || !tc->initialized) return;
     tc->ctx.config.temperature = temp;
 }
 
-void thor_set_top_k(ThorContext* tc, uint32_t k) {
+void rin_set_top_k(RinContext* tc, uint32_t k) {
     if (!tc || !tc->initialized) return;
     tc->ctx.config.top_k = k;
 }
 
-void thor_set_top_p(ThorContext* tc, float p) {
+void rin_set_top_p(RinContext* tc, float p) {
     if (!tc || !tc->initialized) return;
     tc->ctx.config.top_p = p;
 }
 
-void thor_set_power_budget(ThorContext* tc, float watts) {
+void rin_set_power_budget(RinContext* tc, float watts) {
     if (!tc) return;
     tc->power_budget_watts = watts;
 }
@@ -146,20 +146,20 @@ void thor_set_power_budget(ThorContext* tc, float watts) {
  * Inference
  * ============================================================================ */
 
-ThorStatus thor_infer(ThorContext* tc,
+RinStatus rin_infer(RinContext* tc,
                        const uint32_t* input_ids,
                        uint32_t num_input,
                        uint32_t max_output,
-                       ThorResult* result) {
-    if (!tc || !input_ids || !result) return THOR_ERR_INVALID_INPUT;
-    if (!tc->initialized) return THOR_ERR_NOT_INITIALIZED;
+                       RinResult* result) {
+    if (!tc || !input_ids || !result) return RIN_STATUS_ERROR_INVALID_INPUT;
+    if (!tc->initialized) return RIN_STATUS_ERROR_NOT_INITIALIZED;
 
     RIN_Token tokens[64];
     RIN_InferenceResult ir;
     ir.tokens = tokens;
 
-    RIN_Status st = RIN_Inference(&tc->ctx, input_ids, num_input, max_output, &ir);
-    if (st != RIN_STATUS_OK) return (ThorStatus)st;
+    RinStatus st = RIN_Inference(&tc->ctx, input_ids, num_input, max_output, &ir);
+    if (st != RIN_STATUS_OK) return (RinStatus)st;
 
     result->num_tokens = ir.num_tokens;
     result->energy_joules = ir.energy_joules;
@@ -170,10 +170,10 @@ ThorStatus thor_infer(ThorContext* tc,
         for (uint32_t i = 0; i < ir.num_tokens; i++)
             result->tokens[i] = ir.tokens[i].id;
     }
-    return THOR_OK;
+    return RIN_STATUS_OK;
 }
 
-void thor_free_result(ThorResult* result) {
+void rin_free_result(RinResult* result) {
     if (!result) return;
     free(result->tokens);
     result->tokens = NULL;
@@ -183,12 +183,12 @@ void thor_free_result(ThorResult* result) {
  * Tokenizer
  * ============================================================================ */
 
-const char* thor_get_charset(ThorContext* tc, int* vocab_size) {
+const char* rin_get_charset(RinContext* tc, int* vocab_size) {
     if (!tc || !tc->initialized) return NULL;
     return RIN_GetCharSet(&tc->ctx, vocab_size);
 }
 
-int thor_encode(ThorContext* tc, const char* text,
+int rin_encode(RinContext* tc, const char* text,
                  uint32_t* ids, int max_ids) {
     if (!tc || !text || !ids) return -1;
     int vs;
@@ -207,7 +207,7 @@ int thor_encode(ThorContext* tc, const char* text,
     return n;
 }
 
-void thor_decode(ThorContext* tc, const uint32_t* ids,
+void rin_decode(RinContext* tc, const uint32_t* ids,
                   int n, char* text, int max_text) {
     if (!tc || !ids || !text || max_text <= 0) return;
     int vs;
@@ -227,21 +227,21 @@ void thor_decode(ThorContext* tc, const uint32_t* ids,
  * Energy
  * ============================================================================ */
 
-double thor_get_energy_joules(ThorContext* tc) {
+double rin_get_energy_joules(RinContext* tc) {
     if (!tc || !tc->initialized) return 0.0;
     return tc->ctx.total_energy_joules;
 }
 
-double thor_get_energy_millijoules(ThorContext* tc) {
-    return thor_get_energy_joules(tc) * 1000.0;
+double rin_get_energy_millijoules(RinContext* tc) {
+    return rin_get_energy_joules(tc) * 1000.0;
 }
 
-uint64_t thor_get_inference_count(ThorContext* tc) {
+uint64_t rin_get_inference_count(RinContext* tc) {
     if (!tc || !tc->initialized) return 0;
     return tc->ctx.inference_count;
 }
 
-uint64_t thor_get_total_tokens(ThorContext* tc) {
+uint64_t rin_get_total_tokens(RinContext* tc) {
     if (!tc || !tc->initialized) return 0;
     return tc->ctx.total_tokens_generated;
 }
@@ -250,27 +250,27 @@ uint64_t thor_get_total_tokens(ThorContext* tc) {
  * Profiling
  * ============================================================================ */
 
-ThorStatus thor_profile(ThorContext* tc, ThorMode mode,
+RinStatus rin_profile(RinContext* tc, RinMode mode,
                           uint32_t num_warmup, uint32_t num_iter,
                           double* ms_per_token, double* tokens_per_sec) {
-    if (!tc || !ms_per_token || !tokens_per_sec) return THOR_ERR_INVALID_INPUT;
+    if (!tc || !ms_per_token || !tokens_per_sec) return RIN_STATUS_ERROR_INVALID_INPUT;
 
-    ThorMode prev_mode = tc->mode;
-    thor_set_mode(tc, mode);
+    RinMode prev_mode = tc->mode;
+    rin_set_mode(tc, mode);
 
     uint32_t dummy_input[4] = {0, 1, 2, 3};
-    ThorResult r;
+    RinResult r;
     memset(&r, 0, sizeof(r));
 
     for (uint32_t i = 0; i < num_warmup; i++) {
-        thor_infer(tc, dummy_input, 4, 1, &r);
-        thor_free_result(&r);
+        rin_infer(tc, dummy_input, 4, 1, &r);
+        rin_free_result(&r);
     }
 
     uint64_t t0 = RIN_DPTM_GetTimestampNs();
     for (uint32_t i = 0; i < num_iter; i++) {
-        thor_infer(tc, dummy_input, 4, 1, &r);
-        thor_free_result(&r);
+        rin_infer(tc, dummy_input, 4, 1, &r);
+        rin_free_result(&r);
     }
     uint64_t t1 = RIN_DPTM_GetTimestampNs();
 
@@ -278,18 +278,18 @@ ThorStatus thor_profile(ThorContext* tc, ThorMode mode,
     *ms_per_token = total_ms / (double)num_iter;
     *tokens_per_sec = 1000.0 / *ms_per_token;
 
-    thor_set_mode(tc, prev_mode);
-    return THOR_OK;
+    rin_set_mode(tc, prev_mode);
+    return RIN_STATUS_OK;
 }
 
 /* ============================================================================
  * Version
  * ============================================================================ */
 
-const char* thor_version(void) {
+const char* rin_version(void) {
     return RIN_VERSION_STRING;
 }
 
-void thor_version_numbers(uint32_t* major, uint32_t* minor, uint32_t* patch) {
+void rin_version_numbers(uint32_t* major, uint32_t* minor, uint32_t* patch) {
     RIN_GetVersionNumbers(major, minor, patch);
 }

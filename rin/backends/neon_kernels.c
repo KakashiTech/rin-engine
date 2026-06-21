@@ -1,13 +1,13 @@
 /* ARM NEON kernels for RIN inference.
  *
- * Compile with:  -O3 -march=armv8-a+simd -DTHOR_NEON
+ * Compile with:  -O3 -march=armv8-a+simd -DRIN_NEON
  *
  * Provides:
- *   thor_neon_sgemm       – FP32 matrix multiply   (C = A * B + bias)
- *   thor_neon_sgemv       – FP32 matrix-vector     (y = A * x + bias)
- *   thor_neon_softmax     – FP32 softmax in-place
- *   thor_neon_int8_gemm   – INT8 matrix multiply   (C = A * B + bias)
- *   thor_neon_available   – runtime check
+ *   rin_neon_sgemm       – FP32 matrix multiply   (C = A * B + bias)
+ *   rin_neon_sgemv       – FP32 matrix-vector     (y = A * x + bias)
+ *   rin_neon_softmax     – FP32 softmax in-place
+ *   rin_neon_int8_gemm   – INT8 matrix multiply   (C = A * B + bias)
+ *   rin_neon_available   – runtime check
  */
 
 #include <stdint.h>
@@ -26,7 +26,7 @@
 /*  Runtime detection                                                */
 /* ----------------------------------------------------------------- */
 
-int thor_neon_available(void) {
+int rin_neon_available(void) {
 #if THOR_HAVE_NEON
     return 1;
 #else
@@ -41,7 +41,7 @@ int thor_neon_available(void) {
 
 #if THOR_HAVE_NEON
 
-void thor_neon_sgemm(
+void rin_neon_sgemm(
     const float *A, const float *B, float *C,
     int M, int N, int K,
     const float *bias)
@@ -60,7 +60,7 @@ void thor_neon_sgemm(
 }
 
 /* FP32 GEMV  (y = A * x + bias) */
-void thor_neon_sgemv(
+void rin_neon_sgemv(
     const float *A, const float *x, float *y,
     int M, int N,
     const float *bias)
@@ -81,7 +81,7 @@ void thor_neon_sgemv(
 }
 
 /* Softmax in-place */
-void thor_neon_softmax(float *x, int n) {
+void rin_neon_softmax(float *x, int n) {
     /* max */
     float32x4_t vmax = vld1q_f32(x);
     int j = 4;
@@ -117,7 +117,7 @@ void thor_neon_softmax(float *x, int n) {
 }
 
 /* INT8 GEMM:  C_int32 = A_int8 * B_int8  (with dequant later) */
-void thor_neon_int8_gemm(
+void rin_neon_int8_gemm(
     const int8_t *A, const int8_t *B, int32_t *C,
     int M, int N, int K,
     const int32_t *bias)

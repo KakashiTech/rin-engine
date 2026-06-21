@@ -143,7 +143,7 @@ class Profiler:
 
         Raises
         ------
-        ThorError
+        RinError
             If a mode string is invalid or any single-mode profile fails.
         """
         if modes is None:

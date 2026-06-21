@@ -315,8 +315,8 @@ class RinEngine:
         except Exception:
             pass
         try:
-            from .._rin_native import thor_version
-            return thor_version()
+            from .._rin_native import rin_version
+            return rin_version()
         except Exception:
             return "unavailable"
 
@@ -329,8 +329,8 @@ class RinEngine:
         except Exception:
             pass
         try:
-            from .._rin_native import thor_version_numbers
-            return thor_version_numbers()
+            from .._rin_native import rin_version_numbers
+            return rin_version_numbers()
         except Exception:
             return (0, 0, 0)
 

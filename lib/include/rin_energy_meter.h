@@ -1,15 +1,15 @@
 /*
- * rin_energy_meter.h - Medición de Consumo Energético Real con Intel RAPL
+ * rin_energy_meter.h - Real Energy Consumption Measurement with Intel RAPL
  * 
- * Mide Joules exactos por inferencia usando:
+ * Measures exact Joules per inference using:
  * - Intel RAPL (Running Average Power Limit) via MSRs
  * - Linux powercap sysfs (fallback)
- * - perf_event (alternativo)
+ * - perf_event (alternative)
  * 
- * Basado en: powercap/raplcap + sosy-lab/cpu-energy-meter
+ * Based on: powercap/raplcap + sosy-lab/cpu-energy-meter
  * 
- * MÉTRICA CLAVE: Joules por cada 1000 tokens generados
- * Meta: < 0.5W por 1000 tokens = 20x vs PyTorch estándar (~10W)
+ * KEY METRIC: Joules per 1000 generated tokens
+ * Target: < 0.5W per 1000 tokens = 20x vs standard PyTorch (~10W)
  */
 
 #ifndef RIN_ENERGY_METER_H
@@ -29,10 +29,10 @@ extern "C" {
 #endif
 
 /* ============================================================================
- * CONSTANTAS RAPL
+ * RAPL CONSTANTS
  * ============================================================================ */
 
-/* MSR addresses para RAPL */
+/* MSR addresses for RAPL */
 #define MSR_RAPL_POWER_UNIT         0x606
 #define MSR_PKG_ENERGY_STATUS       0x611
 #define MSR_PKG_ENERGY_STATUS_MASK  0xFFFFFFFF
@@ -40,99 +40,99 @@ extern "C" {
 #define MSR_PP0_ENERGY_STATUS       0x639  /* Cores */
 #define MSR_PP1_ENERGY_STATUS       0x641  /* GPU */
 #define MSR_DRAM_ENERGY_STATUS      0x619  /* DRAM */
-#define MSR_PLATFORM_ENERGY_STATUS  0x64D  /* Plataforma completa */
+#define MSR_PLATFORM_ENERGY_STATUS  0x64D  /* Complete platform */
 
-/* Dominios RAPL soportados */
+/* Supported RAPL domains */
 typedef enum {
     RIN_RAPL_DOMAIN_PKG = 0,     /* Whole package - TODO el CPU */
     RIN_RAPL_DOMAIN_PP0,         /* Cores (Power Plane 0) */
     RIN_RAPL_DOMAIN_PP1,         /* GPU (Power Plane 1) */
     RIN_RAPL_DOMAIN_DRAM,        /* DRAM */
-    RIN_RAPL_DOMAIN_PLATFORM,    /* Plataforma completa */
+    RIN_RAPL_DOMAIN_PLATFORM,    /* Complete platform */
     RIN_RAPL_DOMAIN_MAX
 } RIN_RAPL_Domain;
 
-/* Nombres para debug */
+/* Names for debug */
 static const char* RIN_RAPL_DomainNames[] = {
     "PKG", "PP0", "PP1", "DRAM", "PLATFORM"
 };
 
 /* ============================================================================
- * ESTRUCTURAS DE DATOS
+ * DATA STRUCTURES
  * ============================================================================ */
 
 /*
- * RIN_EnergyReading - Lectura de energía
+ * RIN_EnergyReading - Energy reading
  */
 typedef struct {
-    uint64_t joules_raw;         /* Valor raw del MSR (32 bits, wraparound) */
-    double   joules;             /* Convertido a Joules */
-    double   watts;              /* Potencia instantánea si disponible */
-    uint64_t timestamp_ns;       /* Timestamp de lectura (monotónico) */
-    uint32_t overflow_count;     /* Contador de wraparounds detectados */
+    uint64_t joules_raw;         /* Raw MSR value (32 bits, wraparound) */
+    double   joules;             /* Converted to Joules */
+    double   watts;              /* Instantaneous power if available */
+    uint64_t timestamp_ns;       /* Read timestamp (monotonic) */
+    uint32_t overflow_count;     /* Count of detected wraparounds */
 } RIN_EnergyReading;
 
 /*
- * RIN_EnergyMeter - Estado del medidor
+ * RIN_EnergyMeter - Meter state
  */
 typedef struct {
-    int msr_fds[RIN_RAPL_DOMAIN_MAX];      /* File descriptors para MSRs */
-    double energy_units[RIN_RAPL_DOMAIN_MAX];  /* Multiplicador para convertir a Joules */
-    double power_units[RIN_RAPL_DOMAIN_MAX];   /* Multiplicador para convertir a Watts */
-    double time_units[RIN_RAPL_DOMAIN_MAX];    /* Multiplicador para segundos */
+    int msr_fds[RIN_RAPL_DOMAIN_MAX];      /* File descriptors for MSRs */
+    double energy_units[RIN_RAPL_DOMAIN_MAX];  /* Multiplier to convert to Joules */
+    double power_units[RIN_RAPL_DOMAIN_MAX];   /* Multiplier to convert to Watts */
+    double time_units[RIN_RAPL_DOMAIN_MAX];    /* Multiplier for seconds */
     
-    uint64_t max_energy_status[RIN_RAPL_DOMAIN_MAX];  /* Para detectar wraparound */
-    uint64_t last_raw_reading[RIN_RAPL_DOMAIN_MAX];   /* Lectura anterior */
+    uint64_t max_energy_status[RIN_RAPL_DOMAIN_MAX];  /* For wraparound detection */
+    uint64_t last_raw_reading[RIN_RAPL_DOMAIN_MAX];   /* Previous reading */
     
-    uint32_t num_packages;       /* Número de packages detectados */
-    uint32_t initialized;        /* Flag de inicialización */
+    uint32_t num_packages;       /* Number of detected packages */
+    uint32_t initialized;        /* Initialization flag */
     
-    /* Modo de operación */
-    uint8_t use_sysfs;           /* 1=usa sysfs, 0=usa MSR directo */
-    uint8_t has_rapl;            /* 1=RAPL disponible, 0=no disponible */
+    /* Operation mode */
+    uint8_t use_sysfs;           /* 1=use sysfs, 0=use direct MSR */
+    uint8_t has_rapl;            /* 1=RAPL available, 0=not available */
 } RIN_EnergyMeter;
 
 /*
- * RIN_EnergyMetrics - Métricas derivadas
+ * RIN_EnergyMetrics - Derived metrics
  */
 typedef struct {
-    double joules_per_token;     /* Energía por token */
-    double joules_per_1k_tokens; /* Energía por 1000 tokens */
-    double watts_average;        /* Potencia promedio */
-    double watts_per_1k;         /* Potencia equivalente por 1000 tokens */
-    double tokens_per_joule;     /* Tokens procesados por Joule */
-    uint64_t inference_time_ns;  /* Tiempo total de inferencia */
-    uint32_t tokens_processed;   /* Tokens procesados */
+    double joules_per_token;     /* Energy per token */
+    double joules_per_1k_tokens; /* Energy per 1000 tokens */
+    double watts_average;        /* Average power */
+    double watts_per_1k;         /* Equivalent power per 1000 tokens */
+    double tokens_per_joule;     /* Tokens processed per Joule */
+    uint64_t inference_time_ns;  /* Total inference time */
+    uint32_t tokens_processed;   /* Tokens processed */
 } RIN_EnergyMetrics;
 
 /* ============================================================================
- * FUNCIÓN: RIN_EnergyMeter_CheckRAPLSupport
- * Verifica si RAPL está disponible en el sistema
+ * FUNCTION: RIN_EnergyMeter_CheckRAPLSupport
+ * Checks if RAPL is available on the system
  * ============================================================================ */
 static inline int RIN_EnergyMeter_CheckRAPLSupport(void) {
-    /* Intentar abrir MSR del package 0 */
+    /* Try to open MSR of package 0 */
     char msr_path[64];
     snprintf(msr_path, sizeof(msr_path), "/dev/cpu/0/msr");
     
     int fd = open(msr_path, O_RDONLY);
     if (fd >= 0) {
         close(fd);
-        return 1;  /* MSR disponible */
+        return 1;  /* MSR available */
     }
     
-    /* Fallback: verificar sysfs powercap */
+    /* Fallback: check sysfs powercap */
     FILE* fp = fopen("/sys/class/powercap/intel-rapl/intel-rapl:0/energy_uj", "r");
     if (fp) {
         fclose(fp);
-        return 2;  /* sysfs disponible */
+        return 2;  /* sysfs available */
     }
     
-    return 0;  /* RAPL no disponible */
+    return 0;  /* RAPL not available */
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_EnergyMeter_ReadMSR
- * Lee MSR directamente
+ * FUNCTION: RIN_EnergyMeter_ReadMSR
+ * Reads MSR directly
  * ============================================================================ */
 static inline uint64_t RIN_EnergyMeter_ReadMSR(int fd, uint32_t msr) {
     uint64_t value = 0;
@@ -145,33 +145,33 @@ static inline uint64_t RIN_EnergyMeter_ReadMSR(int fd, uint32_t msr) {
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_EnergyMeter_Init
- * Inicializa acceso a RAPL
+ * FUNCTION: RIN_EnergyMeter_Init
+ * Initializes RAPL access
  * 
- * Intenta primero MSR directo, luego fallback a sysfs
+ * Tries direct MSR first, then falls back to sysfs
  * 
- * Retorna: 0 si éxito, -1 si RAPL no disponible
+ * Returns: 0 on success, -1 if RAPL not available
  * ============================================================================ */
 static inline int RIN_EnergyMeter_Init(RIN_EnergyMeter* meter) {
     if (!meter) return -1;
     
     memset(meter, 0, sizeof(RIN_EnergyMeter));
     
-    /* Verificar soporte */
+    /* Check support */
     int rapl_support = RIN_EnergyMeter_CheckRAPLSupport();
     if (rapl_support == 0) {
-        return -1;  /* RAPL no disponible */
+        return -1;  /* RAPL not available */
     }
     
     meter->has_rapl = 1;
     
     if (rapl_support == 2) {
-        /* Usar modo sysfs */
+        /* Use sysfs mode */
         meter->use_sysfs = 1;
         meter->initialized = 1;
         meter->num_packages = 1;
         
-        /* Unidades típicas para sysfs (microJoules) */
+        /* Typical units for sysfs (microJoules) */
         for (int i = 0; i < RIN_RAPL_DOMAIN_MAX; i++) {
             meter->energy_units[i] = 1.0e-6;  /* uJ -> J */
         }
@@ -179,7 +179,7 @@ static inline int RIN_EnergyMeter_Init(RIN_EnergyMeter* meter) {
         return 0;
     }
     
-    /* Modo MSR directo */
+        /* Direct MSR mode */
     char msr_path[64];
     snprintf(msr_path, sizeof(msr_path), "/dev/cpu/0/msr");
     
@@ -188,7 +188,7 @@ static inline int RIN_EnergyMeter_Init(RIN_EnergyMeter* meter) {
         return -1;
     }
     
-    /* Leer unidades de energía del MSR_RAPL_POWER_UNIT */
+    /* Read energy units from MSR_RAPL_POWER_UNIT */
     uint64_t power_unit_msr = RIN_EnergyMeter_ReadMSR(fd, MSR_RAPL_POWER_UNIT);
     close(fd);
     
@@ -196,8 +196,8 @@ static inline int RIN_EnergyMeter_Init(RIN_EnergyMeter* meter) {
         return -1;
     }
     
-    /* Extraer unidades según Intel SDM:
-     * bits 8:14 = energy unit (por defecto 15.3 micro-Joules si 0x1E = 30)
+    /* Extract units per Intel SDM:
+     * bits 8:14 = energy unit (default 15.3 micro-Joules if 0x1E = 30)
      * bits 0:3  = power unit  
      * bits 16:22 = time unit
      */
@@ -207,7 +207,7 @@ static inline int RIN_EnergyMeter_Init(RIN_EnergyMeter* meter) {
     
     /* Energy unit: 1 / (2^exponent) Joules */
     double energy_unit = 1.0 / (1 << energy_unit_exponent);
-    if (energy_unit_exponent == 0) energy_unit = 1.0;  /* Fallback */
+    if (energy_unit_exponent == 0) energy_unit = 1.0;  /* fallback */
     
     /* Power unit: 1 / (2^exponent) Watts */
     double power_unit = 1.0 / (1 << power_unit_exponent);
@@ -222,11 +222,11 @@ static inline int RIN_EnergyMeter_Init(RIN_EnergyMeter* meter) {
         meter->power_units[i] = power_unit;
         meter->time_units[i] = time_unit;
         
-        /* Max energy status antes de wraparound (32 bits) */
+        /* Max energy status before wraparound (32 bits) */
         meter->max_energy_status[i] = (uint64_t)(energy_unit * ((1ULL << 32) - 1));
     }
     
-    /* Abrir FDs para cada dominio (solo PKG por ahora) */
+    /* Open FDs for each domain (only PKG for now) */
     meter->msr_fds[RIN_RAPL_DOMAIN_PKG] = open(msr_path, O_RDONLY);
     if (meter->msr_fds[RIN_RAPL_DOMAIN_PKG] < 0) {
         return -1;
@@ -239,13 +239,13 @@ static inline int RIN_EnergyMeter_Init(RIN_EnergyMeter* meter) {
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_EnergyMeter_ReadDomain
- * Lee energía consumida de un dominio específico
+ * FUNCTION: RIN_EnergyMeter_ReadDomain
+ * Reads energy consumed by a specific domain
  * 
- * @domain: Dominio a leer (PKG, PP0, DRAM, etc.)
- * @reading: Estructura a poblar
+ * @domain: Domain to read (PKG, PP0, DRAM, etc.)
+ * @reading: Structure to populate
  * 
- * Retorna: 0 si éxito, -1 si fallo
+ * Returns: 0 on success, -1 on failure
  * ============================================================================ */
 static inline int RIN_EnergyMeter_ReadDomain(RIN_EnergyMeter* meter,
                                               RIN_RAPL_Domain domain,
@@ -256,7 +256,7 @@ static inline int RIN_EnergyMeter_ReadDomain(RIN_EnergyMeter* meter,
     reading->timestamp_ns = RIN_DPTM_GetTimestampNs();
     
     if (meter->use_sysfs) {
-        /* Modo sysfs */
+        /* Sysfs mode */
         char path[128];
         const char* domain_name = "intel-rapl:0";
         const char* subname = "";
@@ -284,10 +284,10 @@ static inline int RIN_EnergyMeter_ReadDomain(RIN_EnergyMeter* meter,
         
         reading->joules_raw = uj;
         reading->joules = (double)uj / 1000000.0;  /* uJ -> J */
-        reading->watts = 0.0;  /* No disponible directamente en sysfs */
+        reading->watts = 0.0;  /* Not directly available in sysfs */
         
     } else {
-        /* Modo MSR directo */
+    /* Direct MSR mode */
         if (meter->msr_fds[RIN_RAPL_DOMAIN_PKG] < 0) return -1;
         
         uint32_t msr_addr;
@@ -303,14 +303,14 @@ static inline int RIN_EnergyMeter_ReadDomain(RIN_EnergyMeter* meter,
             meter->msr_fds[RIN_RAPL_DOMAIN_PKG], msr_addr
         );
         
-        /* Mask 32 bits (RAPL usa solo los primeros 32 bits) */
+        /* Mask 32 bits (RAPL uses only the first 32 bits) */
         reading->joules_raw = energy_msr & MSR_PKG_ENERGY_STATUS_MASK;
         reading->joules = (double)reading->joules_raw * meter->energy_units[domain];
         
-        /* Detectar wraparound */
+        /* Detect wraparound */
         if (reading->joules_raw < meter->last_raw_reading[domain]) {
-            reading->overflow_count = 1;  /* Detectado wraparound */
-            /* Ajustar: asumir que pasamos por el máximo */
+            reading->overflow_count = 1;  /* Detected wraparound */
+            /* Adjust: assume we passed through the maximum */
             reading->joules += meter->max_energy_status[domain];
         } else {
             reading->overflow_count = 0;
@@ -323,8 +323,8 @@ static inline int RIN_EnergyMeter_ReadDomain(RIN_EnergyMeter* meter,
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_EnergyMeter_StartMeasurement
- * Inicia medición de energía (guarda baseline)
+ * FUNCTION: RIN_EnergyMeter_StartMeasurement
+ * Starts energy measurement (saves baseline)
  * ============================================================================ */
 typedef struct {
     RIN_EnergyReading start_readings[RIN_RAPL_DOMAIN_MAX];
@@ -337,7 +337,7 @@ static inline int RIN_EnergyMeter_StartMeasurement(RIN_EnergyMeter* meter,
     
     meas->start_time_ns = RIN_DPTM_GetTimestampNs();
     
-    /* Leer todos los dominios disponibles */
+    /* Read all available domains */
     for (int d = 0; d < RIN_RAPL_DOMAIN_MAX; d++) {
         RIN_EnergyMeter_ReadDomain(meter, d, &meas->start_readings[d]);
     }
@@ -346,10 +346,10 @@ static inline int RIN_EnergyMeter_StartMeasurement(RIN_EnergyMeter* meter,
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_EnergyMeter_EndMeasurement
- * Finaliza medición y calcula delta
+ * FUNCTION: RIN_EnergyMeter_EndMeasurement
+ * Ends measurement and calculates delta
  * 
- * Retorna: energía consumida en Joules (dominio PKG por defecto)
+ * Returns: energy consumed in Joules (PKG domain by default)
  * ============================================================================ */
 static inline double RIN_EnergyMeter_EndMeasurement(RIN_EnergyMeter* meter,
                                                    RIN_EnergyMeasurement* meas,
@@ -368,13 +368,13 @@ static inline double RIN_EnergyMeter_EndMeasurement(RIN_EnergyMeter* meter,
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_EnergyMeter_ComputeMetrics
- * Computa métricas derivadas
+ * FUNCTION: RIN_EnergyMeter_ComputeMetrics
+ * Computes derived metrics
  * 
- * @joules_consumed: Energía total medida
- * @tokens_processed: Tokens generados/procesados
- * @time_ns: Tiempo transcurrido en nanosegundos
- * @metrics: Estructura a poblar
+ * @joules_consumed: Total measured energy
+ * @tokens_processed: Generated/processed tokens
+ * @time_ns: Elapsed time in nanoseconds
+ * @metrics: Structure to populate
  * ============================================================================ */
 static inline void RIN_EnergyMeter_ComputeMetrics(double joules_consumed,
                                                   uint32_t tokens_processed,
@@ -397,18 +397,18 @@ static inline void RIN_EnergyMeter_ComputeMetrics(double joules_consumed,
         double time_seconds = (double)time_ns / 1e9;
         metrics->watts_average = joules_consumed / time_seconds;
         
-        /* Potencia equivalente por 1000 tokens */
+        /* Equivalent power per 1000 tokens */
         double tokens_per_sec = (double)tokens_processed / time_seconds;
         if (tokens_per_sec > 0) {
             double seconds_per_1k = 1000.0 / tokens_per_sec;
-            metrics->watts_per_1k = metrics->watts_average;  /* Misma potencia, escalada */
+            metrics->watts_per_1k = metrics->watts_average;  /* Same power, scaled */
         }
     }
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_EnergyMeter_Close
- * Limpieza
+ * FUNCTION: RIN_EnergyMeter_Close
+ * Cleanup
  * ============================================================================ */
 static inline void RIN_EnergyMeter_Close(RIN_EnergyMeter* meter) {
     if (!meter) return;
@@ -424,8 +424,8 @@ static inline void RIN_EnergyMeter_Close(RIN_EnergyMeter* meter) {
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_EnergyMeter_PrintMetrics
- * Imprime métricas formateadas
+ * FUNCTION: RIN_EnergyMeter_PrintMetrics
+ * Prints formatted metrics
  * ============================================================================ */
 static inline void RIN_EnergyMeter_PrintMetrics(const RIN_EnergyMetrics* metrics) {
     if (!metrics) return;
@@ -441,10 +441,10 @@ static inline void RIN_EnergyMeter_PrintMetrics(const RIN_EnergyMetrics* metrics
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_EnergyMeter_ValidateTarget
- * Valida si se cumple meta de eficiencia
+ * FUNCTION: RIN_EnergyMeter_ValidateTarget
+ * Validates if efficiency target is met
  * 
- * Meta: < 0.5W por 1000 tokens
+ * Target: < 0.5W per 1000 tokens
  * ============================================================================ */
 static inline bool RIN_EnergyMeter_ValidateTarget(const RIN_EnergyMetrics* metrics,
                                                  float target_watts_per_1k) {
@@ -455,11 +455,11 @@ static inline bool RIN_EnergyMeter_ValidateTarget(const RIN_EnergyMetrics* metri
 
 /* ============================================================================
  * MACRO: RIN_ENERGY_MEASURE_SCOPE
- * Macro para medir automáticamente un bloque de código
+ * Macro to automatically measure a block of code
  * 
- * Uso:
+ * Usage:
  *   RIN_ENERGY_MEASURE_SCOPE(meter, metrics, {
- *       // ... código a medir ...
+ *       // ... code to measure ...
  *   });
  * ============================================================================ */
 #define RIN_ENERGY_MEASURE_SCOPE(meter, metrics_var, code) \
@@ -470,7 +470,7 @@ static inline bool RIN_EnergyMeter_ValidateTarget(const RIN_EnergyMetrics* metri
         uint64_t _end_time = RIN_DPTM_GetTimestampNs(); \
         double _joules = RIN_EnergyMeter_EndMeasurement((meter), &_meas, RIN_RAPL_DOMAIN_PKG); \
         uint64_t _time_ns = _end_time - _meas.start_time_ns; \
-        /* Asume que tokens se cuentan externamente */ \
+        /* Assumes tokens are counted externally */ \
         RIN_EnergyMeter_ComputeMetrics(_joules, 0, _time_ns, &(metrics_var)); \
     } while(0)
 

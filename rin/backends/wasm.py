@@ -16,7 +16,7 @@ __all__ = ["is_wasm_available", "wasm_simd_available"]
 def is_wasm_available() -> bool:
     if hasattr(sys, "platform"):
         return sys.platform in ("emscripten", "wasi")
-    return bool(os.environ.get("THOR_WASM") or os.environ.get("EMSCRIPTEN"))
+    return bool(os.environ.get("RIN_WASM") or os.environ.get("EMSCRIPTEN"))
 
 
 def wasm_simd_available() -> bool:

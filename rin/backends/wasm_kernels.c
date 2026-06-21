@@ -3,10 +3,10 @@
  * Compile with:  -O3 -msimd128 -DTHOR_WASM_SIMD
  *
  * Provides:
- *   thor_wasm_sgemm       – FP32 matrix multiply   (C = A * B + bias)
- *   thor_wasm_sgemv       – FP32 matrix-vector     (y = A * x + bias)
- *   thor_wasm_softmax     – FP32 softmax in-place
- *   thor_wasm_available   – runtime check
+ *   rin_wasm_sgemm       – FP32 matrix multiply   (C = A * B + bias)
+ *   rin_wasm_sgemv       – FP32 matrix-vector     (y = A * x + bias)
+ *   rin_wasm_softmax     – FP32 softmax in-place
+ *   rin_wasm_available   – runtime check
  */
 
 #include <stdint.h>
@@ -25,7 +25,7 @@
 /*  Runtime detection                                                */
 /* ----------------------------------------------------------------- */
 
-int thor_wasm_available(void) {
+int rin_wasm_available(void) {
 #if THOR_HAVE_WASM_SIMD
     return 1;
 #else
@@ -39,7 +39,7 @@ int thor_wasm_available(void) {
 
 #if THOR_HAVE_WASM_SIMD
 
-void thor_wasm_sgemm(
+void rin_wasm_sgemm(
     const float *A, const float *B, float *C,
     int M, int N, int K,
     const float *bias)
@@ -58,7 +58,7 @@ void thor_wasm_sgemm(
 }
 
 /* FP32 GEMV  (y = A * x + bias) */
-void thor_wasm_sgemv(
+void rin_wasm_sgemv(
     const float *A, const float *x, float *y,
     int M, int N,
     const float *bias)
@@ -82,7 +82,7 @@ void thor_wasm_sgemv(
 }
 
 /* Softmax in-place */
-void thor_wasm_softmax(float *x, int n) {
+void rin_wasm_softmax(float *x, int n) {
     v128_t vmax = wasm_v128_load(x);
     int j = 4;
     for (; j + 4 <= n; j += 4)

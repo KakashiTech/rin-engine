@@ -6,12 +6,12 @@ functions, together with automatic library discovery and thread-safe dispatch.
 
 Environment variables
 ---------------------
-THOR_LIB : str
+RIN_LIB : str
     Explicit path to ``librin.so``. When set, no auto-detection is performed.
 
 Library search order
 --------------------
-1. ``THOR_LIB`` environment variable.
+1. ``RIN_LIB`` environment variable.
 2. ``<package_root>/../librin.so`` (installed next to the ``rin`` package).
 3. Default system linker paths (``ctypes.CDLL("librin.so")``).
 """
@@ -27,52 +27,52 @@ from typing import ClassVar, List, Optional, Tuple
 __all__ = [
     "RinError",
     "RinInitError",
-    "ThorMemoryError",
-    "ThorWeightsError",
-    "ThorInferenceError",
-    "ThorNotInitializedError",
-    "ThorInvalidInputError",
-    "ThorUnsupportedError",
-    "ThorStatus",
-    "ThorMode",
-    "ThorModelInfo",
-    "ThorResult",
-    "THOR_OK",
-    "THOR_ERR_INIT",
-    "THOR_ERR_MEMORY",
-    "THOR_ERR_WEIGHTS",
-    "THOR_ERR_INFERENCE",
-    "THOR_ERR_NOT_INITIALIZED",
-    "THOR_ERR_INVALID_INPUT",
-    "THOR_ERR_UNSUPPORTED",
-    "THOR_MODE_MLP",
-    "THOR_MODE_SNN",
-    "THOR_MODE_ATTN",
-    "THOR_MODE_THOR",
-    "THOR_MODE_TRANSFORMER",
+    "RinMemoryError",
+    "RinWeightsError",
+    "RinInferenceError",
+    "RinNotInitializedError",
+    "RinInvalidInputError",
+    "RinUnsupportedError",
+    "RinStatus",
+    "RinMode",
+    "RinModelInfo",
+    "RinResult",
+    "RIN_OK",
+    "RIN_ERR_INIT",
+    "RIN_ERR_MEMORY",
+    "RIN_ERR_WEIGHTS",
+    "RIN_ERR_INFERENCE",
+    "RIN_ERR_NOT_INITIALIZED",
+    "RIN_ERR_INVALID_INPUT",
+    "RIN_ERR_UNSUPPORTED",
+    "RIN_MODE_MLP",
+    "RIN_MODE_SNN",
+    "RIN_MODE_ATTN",
+    "RIN_MODE_THOR",
+    "RIN_MODE_TRANSFORMER",
     "load_library",
-    "thor_create",
-    "thor_destroy",
-    "thor_load_model",
-    "thor_get_model_info",
-    "thor_set_mode",
-    "thor_get_mode",
-    "thor_set_temperature",
-    "thor_set_top_k",
-    "thor_set_top_p",
-    "thor_set_power_budget",
-    "thor_infer",
-    "thor_free_result",
-    "thor_get_charset",
-    "thor_encode",
-    "thor_decode",
-    "thor_get_energy_joules",
-    "thor_get_energy_millijoules",
-    "thor_get_inference_count",
-    "thor_get_total_tokens",
-    "thor_profile",
-    "thor_version",
-    "thor_version_numbers",
+    "rin_create",
+    "rin_destroy",
+    "rin_load_model",
+    "rin_get_model_info",
+    "rin_set_mode",
+    "rin_get_mode",
+    "rin_set_temperature",
+    "rin_set_top_k",
+    "rin_set_top_p",
+    "rin_set_power_budget",
+    "rin_infer",
+    "rin_free_result",
+    "rin_get_charset",
+    "rin_encode",
+    "rin_decode",
+    "rin_get_energy_joules",
+    "rin_get_energy_millijoules",
+    "rin_get_inference_count",
+    "rin_get_total_tokens",
+    "rin_profile",
+    "rin_version",
+    "rin_version_numbers",
     "native_lock",
 ]
 
@@ -81,46 +81,46 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-class ThorError(Exception):
+class RinError(Exception):
     """Base exception for all RIN runtime errors."""
 
 
-class ThorInitError(ThorError):
-    """Initialisation failure (``THOR_ERR_INIT``)."""
+class RinInitError(RinError):
+    """Initialisation failure (``RIN_ERR_INIT``)."""
 
 
-class ThorMemoryError(ThorError):
-    """Memory allocation failure (``THOR_ERR_MEMORY``)."""
+class RinMemoryError(RinError):
+    """Memory allocation failure (``RIN_ERR_MEMORY``)."""
 
 
-class ThorWeightsError(ThorError):
-    """Model weight loading failure (``THOR_ERR_WEIGHTS``)."""
+class RinWeightsError(RinError):
+    """Model weight loading failure (``RIN_ERR_WEIGHTS``)."""
 
 
-class ThorInferenceError(ThorError):
-    """Inference execution failure (``THOR_ERR_INFERENCE``)."""
+class RinInferenceError(RinError):
+    """Inference execution failure (``RIN_ERR_INFERENCE``)."""
 
 
-class ThorNotInitializedError(ThorError):
-    """Operation attempted before the context was initialised (``THOR_ERR_NOT_INITIALIZED``)."""
+class RinNotInitializedError(RinError):
+    """Operation attempted before the context was initialised (``RIN_ERR_NOT_INITIALIZED``)."""
 
 
-class ThorInvalidInputError(ThorError):
-    """Invalid input argument (``THOR_ERR_INVALID_INPUT``)."""
+class RinInvalidInputError(RinError):
+    """Invalid input argument (``RIN_ERR_INVALID_INPUT``)."""
 
 
-class ThorUnsupportedError(ThorError):
-    """Unsupported feature or configuration (``THOR_ERR_UNSUPPORTED``)."""
+class RinUnsupportedError(RinError):
+    """Unsupported feature or configuration (``RIN_ERR_UNSUPPORTED``)."""
 
 
-_STATUS_ERROR_MAP: dict[int, type[ThorError]] = {
-    -1: ThorInitError,
-    -2: ThorMemoryError,
-    -3: ThorWeightsError,
-    -4: ThorInferenceError,
-    -5: ThorNotInitializedError,
-    -6: ThorInvalidInputError,
-    -7: ThorUnsupportedError,
+_STATUS_ERROR_MAP: dict[int, type[RinError]] = {
+    -1: RinInitError,
+    -2: RinMemoryError,
+    -3: RinWeightsError,
+    -4: RinInferenceError,
+    -5: RinNotInitializedError,
+    -6: RinInvalidInputError,
+    -7: RinUnsupportedError,
 }
 
 _STATUS_MESSAGE_MAP: dict[int, str] = {
@@ -139,33 +139,33 @@ _STATUS_MESSAGE_MAP: dict[int, str] = {
 # Status / Mode enum-like constants
 # ---------------------------------------------------------------------------
 
-THOR_OK: int = 0
-THOR_ERR_INIT: int = -1
-THOR_ERR_MEMORY: int = -2
-THOR_ERR_WEIGHTS: int = -3
-THOR_ERR_INFERENCE: int = -4
-THOR_ERR_NOT_INITIALIZED: int = -5
-THOR_ERR_INVALID_INPUT: int = -6
-THOR_ERR_UNSUPPORTED: int = -7
+RIN_OK: int = 0
+RIN_ERR_INIT: int = -1
+RIN_ERR_MEMORY: int = -2
+RIN_ERR_WEIGHTS: int = -3
+RIN_ERR_INFERENCE: int = -4
+RIN_ERR_NOT_INITIALIZED: int = -5
+RIN_ERR_INVALID_INPUT: int = -6
+RIN_ERR_UNSUPPORTED: int = -7
 
-THOR_MODE_MLP: int = 0
-THOR_MODE_SNN: int = 1
-THOR_MODE_ATTN: int = 2
-THOR_MODE_THOR: int = 3
-THOR_MODE_TRANSFORMER: int = 4
+RIN_MODE_MLP: int = 0
+RIN_MODE_SNN: int = 1
+RIN_MODE_ATTN: int = 2
+RIN_MODE_THOR: int = 3
+RIN_MODE_TRANSFORMER: int = 4
 
 
-class ThorStatus:
+class RinStatus:
     """Namespace wrapping C status codes with human-readable names."""
 
-    OK: ClassVar[int] = THOR_OK
-    ERR_INIT: ClassVar[int] = THOR_ERR_INIT
-    ERR_MEMORY: ClassVar[int] = THOR_ERR_MEMORY
-    ERR_WEIGHTS: ClassVar[int] = THOR_ERR_WEIGHTS
-    ERR_INFERENCE: ClassVar[int] = THOR_ERR_INFERENCE
-    ERR_NOT_INITIALIZED: ClassVar[int] = THOR_ERR_NOT_INITIALIZED
-    ERR_INVALID_INPUT: ClassVar[int] = THOR_ERR_INVALID_INPUT
-    ERR_UNSUPPORTED: ClassVar[int] = THOR_ERR_UNSUPPORTED
+    OK: ClassVar[int] = RIN_OK
+    ERR_INIT: ClassVar[int] = RIN_ERR_INIT
+    ERR_MEMORY: ClassVar[int] = RIN_ERR_MEMORY
+    ERR_WEIGHTS: ClassVar[int] = RIN_ERR_WEIGHTS
+    ERR_INFERENCE: ClassVar[int] = RIN_ERR_INFERENCE
+    ERR_NOT_INITIALIZED: ClassVar[int] = RIN_ERR_NOT_INITIALIZED
+    ERR_INVALID_INPUT: ClassVar[int] = RIN_ERR_INVALID_INPUT
+    ERR_UNSUPPORTED: ClassVar[int] = RIN_ERR_UNSUPPORTED
 
     @staticmethod
     def is_error(status: int) -> bool:
@@ -178,14 +178,14 @@ class ThorStatus:
         return _STATUS_MESSAGE_MAP.get(status, f"unknown status code {status}")
 
 
-class ThorMode:
+class RinMode:
     """Namespace wrapping inference-mode constants."""
 
-    MLP: ClassVar[int] = THOR_MODE_MLP
-    SNN: ClassVar[int] = THOR_MODE_SNN
-    ATTN: ClassVar[int] = THOR_MODE_ATTN
-    THOR: ClassVar[int] = THOR_MODE_THOR
-    TRANSFORMER: ClassVar[int] = THOR_MODE_TRANSFORMER
+    MLP: ClassVar[int] = RIN_MODE_MLP
+    SNN: ClassVar[int] = RIN_MODE_SNN
+    ATTN: ClassVar[int] = RIN_MODE_ATTN
+    THOR: ClassVar[int] = RIN_MODE_THOR
+    TRANSFORMER: ClassVar[int] = RIN_MODE_TRANSFORMER
 
     _NAME_MAP: ClassVar[dict[int, str]] = {
         0: "mlp",
@@ -200,7 +200,7 @@ class ThorMode:
     @staticmethod
     def name(mode: int) -> str:
         """Return the canonical string name for a mode integer."""
-        return ThorMode._NAME_MAP.get(mode, f"unknown({mode})")
+        return RinMode._NAME_MAP.get(mode, f"unknown({mode})")
 
     @staticmethod
     def from_string(name: str) -> int:
@@ -210,9 +210,9 @@ class ThorMode:
         """
         name = name.strip().lower()
         try:
-            return ThorMode._VALUE_MAP[name]
+            return RinMode._VALUE_MAP[name]
         except KeyError:
-            valid = ", ".join(sorted(ThorMode._VALUE_MAP))
+            valid = ", ".join(sorted(RinMode._VALUE_MAP))
             raise ValueError(
                 f"Unknown mode {name!r}. Valid modes: {valid}"
             ) from None
@@ -222,8 +222,8 @@ class ThorMode:
 # C-compatible struct definitions
 # ---------------------------------------------------------------------------
 
-class ThorModelInfo(ctypes.Structure):
-    """Mirrors the C ``ThorModelInfo`` struct."""
+class RinModelInfo(ctypes.Structure):
+    """Mirrors the C ``RinModelInfo`` struct."""
 
     _fields_ = [
         ("num_layers", ctypes.c_uint32),
@@ -252,8 +252,8 @@ class ThorModelInfo(ctypes.Structure):
         }
 
 
-class ThorResult(ctypes.Structure):
-    """Mirrors the C ``ThorResult`` struct."""
+class RinResult(ctypes.Structure):
+    """Mirrors the C ``RinResult`` struct."""
 
     _fields_ = [
         ("tokens", ctypes.POINTER(ctypes.c_uint32)),
@@ -266,7 +266,7 @@ class ThorResult(ctypes.Structure):
     def as_dict(self) -> dict[str, any]:
         """Copy token data into a plain dictionary and return it.
 
-        The caller *must still* call :func:`thor_free_result` after reading
+        The caller *must still* call :func:`rin_free_result` after reading
         the dict.
         """
         token_list: List[int] = (
@@ -297,16 +297,16 @@ def _resolve_library_path() -> str:
 
     Resolution order
     -----------------
-     1. ``THOR_LIB`` environment variable.
+     1. ``RIN_LIB`` environment variable.
      2. ``<package_root>/../librin.so`` (next to the ``rin`` package).
      3. ``"librin.so"`` (system library path).
     """
-    env_path = os.environ.get("THOR_LIB")
+    env_path = os.environ.get("RIN_LIB")
     if env_path:
         resolved = os.path.abspath(env_path)
         if os.path.isfile(resolved):
             return resolved
-        raise ThorError(f"THOR_LIB={env_path} does not point to a file")
+        raise RinError(f"RIN_LIB={env_path} does not point to a file")
 
     # Relative to this module's location (rin._rin_native.py -> ../librin.so)
     module_dir = Path(__file__).resolve().parent
@@ -333,7 +333,7 @@ def load_library(path: Optional[str] = None) -> ctypes.CDLL:
 
     Raises
     ------
-    ThorError
+    RinError
         If the library cannot be found or loaded.
     """
     global _lib
@@ -344,7 +344,7 @@ def load_library(path: Optional[str] = None) -> ctypes.CDLL:
     try:
         _lib = ctypes.CDLL(lib_path)
     except OSError as e:
-        raise ThorError(
+        raise RinError(
             f"Failed to load RIN shared library from {lib_path!r}: {e}"
         ) from e
     return _lib
@@ -357,68 +357,68 @@ def load_library(path: Optional[str] = None) -> ctypes.CDLL:
 def _init_fn_signatures(lib: ctypes.CDLL) -> None:
     """Set ``argtypes`` / ``restype`` on every exported C function."""
     # The opaque context handle
-    lib.thor_create.restype = ctypes.c_void_p
-    lib.thor_create.argtypes = []
+    lib.rin_create.restype = ctypes.c_void_p
+    lib.rin_create.argtypes = []
 
-    lib.thor_destroy.restype = None
-    lib.thor_destroy.argtypes = [ctypes.c_void_p]
+    lib.rin_destroy.restype = None
+    lib.rin_destroy.argtypes = [ctypes.c_void_p]
 
     # Model loading
-    lib.thor_load_model.restype = ctypes.c_int
-    lib.thor_load_model.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+    lib.rin_load_model.restype = ctypes.c_int
+    lib.rin_load_model.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 
-    lib.thor_get_model_info.restype = ctypes.c_int
-    lib.thor_get_model_info.argtypes = [
+    lib.rin_get_model_info.restype = ctypes.c_int
+    lib.rin_get_model_info.argtypes = [
         ctypes.c_void_p,
-        ctypes.POINTER(ThorModelInfo),
+        ctypes.POINTER(RinModelInfo),
     ]
 
     # Configuration
-    lib.thor_set_mode.restype = None
-    lib.thor_set_mode.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    lib.rin_set_mode.restype = None
+    lib.rin_set_mode.argtypes = [ctypes.c_void_p, ctypes.c_int]
 
-    lib.thor_get_mode.restype = ctypes.c_int
-    lib.thor_get_mode.argtypes = [ctypes.c_void_p]
+    lib.rin_get_mode.restype = ctypes.c_int
+    lib.rin_get_mode.argtypes = [ctypes.c_void_p]
 
-    lib.thor_set_temperature.restype = None
-    lib.thor_set_temperature.argtypes = [ctypes.c_void_p, ctypes.c_float]
+    lib.rin_set_temperature.restype = None
+    lib.rin_set_temperature.argtypes = [ctypes.c_void_p, ctypes.c_float]
 
-    lib.thor_set_top_k.restype = None
-    lib.thor_set_top_k.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+    lib.rin_set_top_k.restype = None
+    lib.rin_set_top_k.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
 
-    lib.thor_set_top_p.restype = None
-    lib.thor_set_top_p.argtypes = [ctypes.c_void_p, ctypes.c_float]
+    lib.rin_set_top_p.restype = None
+    lib.rin_set_top_p.argtypes = [ctypes.c_void_p, ctypes.c_float]
 
-    lib.thor_set_power_budget.restype = None
-    lib.thor_set_power_budget.argtypes = [ctypes.c_void_p, ctypes.c_float]
+    lib.rin_set_power_budget.restype = None
+    lib.rin_set_power_budget.argtypes = [ctypes.c_void_p, ctypes.c_float]
 
     # Inference
-    lib.thor_infer.restype = ctypes.c_int
-    lib.thor_infer.argtypes = [
+    lib.rin_infer.restype = ctypes.c_int
+    lib.rin_infer.argtypes = [
         ctypes.c_void_p,
         ctypes.POINTER(ctypes.c_uint32),
         ctypes.c_uint32,
         ctypes.c_uint32,
-        ctypes.POINTER(ThorResult),
+        ctypes.POINTER(RinResult),
     ]
 
-    lib.thor_free_result.restype = None
-    lib.thor_free_result.argtypes = [ctypes.POINTER(ThorResult)]
+    lib.rin_free_result.restype = None
+    lib.rin_free_result.argtypes = [ctypes.POINTER(RinResult)]
 
     # Tokenizer
-    lib.thor_get_charset.restype = ctypes.c_char_p
-    lib.thor_get_charset.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int)]
+    lib.rin_get_charset.restype = ctypes.c_char_p
+    lib.rin_get_charset.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int)]
 
-    lib.thor_encode.restype = ctypes.c_int
-    lib.thor_encode.argtypes = [
+    lib.rin_encode.restype = ctypes.c_int
+    lib.rin_encode.argtypes = [
         ctypes.c_void_p,
         ctypes.c_char_p,
         ctypes.POINTER(ctypes.c_uint32),
         ctypes.c_int,
     ]
 
-    lib.thor_decode.restype = None
-    lib.thor_decode.argtypes = [
+    lib.rin_decode.restype = None
+    lib.rin_decode.argtypes = [
         ctypes.c_void_p,
         ctypes.POINTER(ctypes.c_uint32),
         ctypes.c_int,
@@ -427,21 +427,21 @@ def _init_fn_signatures(lib: ctypes.CDLL) -> None:
     ]
 
     # Energy
-    lib.thor_get_energy_joules.restype = ctypes.c_double
-    lib.thor_get_energy_joules.argtypes = [ctypes.c_void_p]
+    lib.rin_get_energy_joules.restype = ctypes.c_double
+    lib.rin_get_energy_joules.argtypes = [ctypes.c_void_p]
 
-    lib.thor_get_energy_millijoules.restype = ctypes.c_double
-    lib.thor_get_energy_millijoules.argtypes = [ctypes.c_void_p]
+    lib.rin_get_energy_millijoules.restype = ctypes.c_double
+    lib.rin_get_energy_millijoules.argtypes = [ctypes.c_void_p]
 
-    lib.thor_get_inference_count.restype = ctypes.c_uint64
-    lib.thor_get_inference_count.argtypes = [ctypes.c_void_p]
+    lib.rin_get_inference_count.restype = ctypes.c_uint64
+    lib.rin_get_inference_count.argtypes = [ctypes.c_void_p]
 
-    lib.thor_get_total_tokens.restype = ctypes.c_uint64
-    lib.thor_get_total_tokens.argtypes = [ctypes.c_void_p]
+    lib.rin_get_total_tokens.restype = ctypes.c_uint64
+    lib.rin_get_total_tokens.argtypes = [ctypes.c_void_p]
 
     # Profiling
-    lib.thor_profile.restype = ctypes.c_int
-    lib.thor_profile.argtypes = [
+    lib.rin_profile.restype = ctypes.c_int
+    lib.rin_profile.argtypes = [
         ctypes.c_void_p,
         ctypes.c_int,
         ctypes.c_uint32,
@@ -451,11 +451,11 @@ def _init_fn_signatures(lib: ctypes.CDLL) -> None:
     ]
 
     # Version
-    lib.thor_version.restype = ctypes.c_char_p
-    lib.thor_version.argtypes = []
+    lib.rin_version.restype = ctypes.c_char_p
+    lib.rin_version.argtypes = []
 
-    lib.thor_version_numbers.restype = None
-    lib.thor_version_numbers.argtypes = [
+    lib.rin_version_numbers.restype = None
+    lib.rin_version_numbers.argtypes = [
         ctypes.POINTER(ctypes.c_uint32),
         ctypes.POINTER(ctypes.c_uint32),
         ctypes.POINTER(ctypes.c_uint32),
@@ -467,49 +467,49 @@ def _init_fn_signatures(lib: ctypes.CDLL) -> None:
 # ---------------------------------------------------------------------------
 
 def _check(status: int) -> int:
-    """Raise the appropriate :class:`ThorError` if *status* is an error code."""
+    """Raise the appropriate :class:`RinError` if *status* is an error code."""
     if status == 0:
         return status
-    exc_cls = _STATUS_ERROR_MAP.get(status, ThorError)
+    exc_cls = _STATUS_ERROR_MAP.get(status, RinError)
     msg = _STATUS_MESSAGE_MAP.get(status, f"unknown error {status}")
     raise exc_cls(msg)
 
 
-def thor_create() -> int:
+def rin_create() -> int:
     """Create a new RIN runtime context.
 
     Returns
     -------
     int
-        Opaque pointer (handle) to the ``ThorContext``.
+        Opaque pointer (handle) to the ``RinContext``.
 
     Raises
     ------
-    ThorError
+    RinError
         On failure.
     """
     with native_lock:
         lib = load_library()
-        ptr = lib.thor_create()
+        ptr = lib.rin_create()
         if not ptr:
-            raise ThorError("thor_create returned NULL")
+            raise RinError("rin_create returned NULL")
         return ptr
 
 
-def thor_destroy(ctx: int) -> None:
-    """Destroy a RIN runtime context previously created with :func:`thor_create`.
+def rin_destroy(ctx: int) -> None:
+    """Destroy a RIN runtime context previously created with :func:`rin_create`.
 
     Parameters
     ----------
     ctx : int
-        Opaque handle returned by :func:`thor_create`.
+        Opaque handle returned by :func:`rin_create`.
     """
     with native_lock:
         lib = load_library()
-        lib.thor_destroy(ctx)
+        lib.rin_destroy(ctx)
 
 
-def thor_load_model(ctx: int, model_path: str) -> None:
+def rin_load_model(ctx: int, model_path: str) -> None:
     """Load a model file into the runtime context.
 
     Parameters
@@ -521,15 +521,15 @@ def thor_load_model(ctx: int, model_path: str) -> None:
 
     Raises
     ------
-    ThorWeightsError
+    RinWeightsError
         If the model file cannot be loaded.
     """
     with native_lock:
         lib = load_library()
-        _check(lib.thor_load_model(ctx, model_path.encode("utf-8")))
+        _check(lib.rin_load_model(ctx, model_path.encode("utf-8")))
 
 
-def thor_get_model_info(ctx: int) -> ThorModelInfo:
+def rin_get_model_info(ctx: int) -> RinModelInfo:
     """Retrieve the currently loaded model's metadata.
 
     Parameters
@@ -539,22 +539,22 @@ def thor_get_model_info(ctx: int) -> ThorModelInfo:
 
     Returns
     -------
-    ThorModelInfo
+    RinModelInfo
         Populated struct mirroring the C struct.
 
     Raises
     ------
-    ThorNotInitializedError
+    RinNotInitializedError
         If no model is loaded.
     """
     with native_lock:
         lib = load_library()
-        info = ThorModelInfo()
-        _check(lib.thor_get_model_info(ctx, ctypes.byref(info)))
+        info = RinModelInfo()
+        _check(lib.rin_get_model_info(ctx, ctypes.byref(info)))
         return info
 
 
-def thor_set_mode(ctx: int, mode: int) -> None:
+def rin_set_mode(ctx: int, mode: int) -> None:
     """Set the inference execution mode.
 
     Parameters
@@ -562,14 +562,14 @@ def thor_set_mode(ctx: int, mode: int) -> None:
     ctx : int
         Runtime context handle.
     mode : int
-        One of ``THOR_MODE_MLP``, ``THOR_MODE_SNN``, etc.
+        One of ``RIN_MODE_MLP``, ``RIN_MODE_SNN``, etc.
     """
     with native_lock:
         lib = load_library()
-        lib.thor_set_mode(ctx, mode)
+        lib.rin_set_mode(ctx, mode)
 
 
-def thor_get_mode(ctx: int) -> int:
+def rin_get_mode(ctx: int) -> int:
     """Return the currently active inference mode.
 
     Parameters
@@ -580,14 +580,14 @@ def thor_get_mode(ctx: int) -> int:
     Returns
     -------
     int
-        One of the ``THOR_MODE_*`` constants.
+        One of the ``RIN_MODE_*`` constants.
     """
     with native_lock:
         lib = load_library()
-        return lib.thor_get_mode(ctx)
+        return lib.rin_get_mode(ctx)
 
 
-def thor_set_temperature(ctx: int, temp: float) -> None:
+def rin_set_temperature(ctx: int, temp: float) -> None:
     """Set the sampling temperature.
 
     Parameters
@@ -599,10 +599,10 @@ def thor_set_temperature(ctx: int, temp: float) -> None:
     """
     with native_lock:
         lib = load_library()
-        lib.thor_set_temperature(ctx, temp)
+        lib.rin_set_temperature(ctx, temp)
 
 
-def thor_set_top_k(ctx: int, k: int) -> None:
+def rin_set_top_k(ctx: int, k: int) -> None:
     """Set Top-K sampling parameter.
 
     Parameters
@@ -614,10 +614,10 @@ def thor_set_top_k(ctx: int, k: int) -> None:
     """
     with native_lock:
         lib = load_library()
-        lib.thor_set_top_k(ctx, k)
+        lib.rin_set_top_k(ctx, k)
 
 
-def thor_set_top_p(ctx: int, p: float) -> None:
+def rin_set_top_p(ctx: int, p: float) -> None:
     """Set Top-P (nucleus) sampling parameter.
 
     Parameters
@@ -629,10 +629,10 @@ def thor_set_top_p(ctx: int, p: float) -> None:
     """
     with native_lock:
         lib = load_library()
-        lib.thor_set_top_p(ctx, p)
+        lib.rin_set_top_p(ctx, p)
 
 
-def thor_set_power_budget(ctx: int, watts: float) -> None:
+def rin_set_power_budget(ctx: int, watts: float) -> None:
     """Set the power budget for energy-aware scheduling.
 
     Parameters
@@ -644,15 +644,15 @@ def thor_set_power_budget(ctx: int, watts: float) -> None:
     """
     with native_lock:
         lib = load_library()
-        lib.thor_set_power_budget(ctx, watts)
+        lib.rin_set_power_budget(ctx, watts)
 
 
-def thor_infer(
+def rin_infer(
     ctx: int,
     input_ids: List[int],
     num_input: int,
     max_output: int,
-) -> ThorResult:
+) -> RinResult:
     """Run inference on the given input token IDs.
 
     Parameters
@@ -668,36 +668,36 @@ def thor_infer(
 
     Returns
     -------
-    ThorResult
+    RinResult
         Result struct containing generated tokens and performance data.
 
     Raises
     ------
-    ThorInferenceError
+    RinInferenceError
         If inference fails.
     """
     with native_lock:
         lib = load_library()
         arr = (ctypes.c_uint32 * num_input)(*input_ids)
-        result = ThorResult()
-        _check(lib.thor_infer(ctx, arr, num_input, max_output, ctypes.byref(result)))
+        result = RinResult()
+        _check(lib.rin_infer(ctx, arr, num_input, max_output, ctypes.byref(result)))
         return result
 
 
-def thor_free_result(result: ThorResult) -> None:
+def rin_free_result(result: RinResult) -> None:
     """Free the dynamically allocated token buffer inside a result struct.
 
     Parameters
     ----------
-    result : ThorResult
+    result : RinResult
         Struct whose ``tokens`` pointer will be freed.
     """
     with native_lock:
         lib = load_library()
-        lib.thor_free_result(ctypes.byref(result))
+        lib.rin_free_result(ctypes.byref(result))
 
 
-def thor_get_charset(ctx: int) -> Tuple[str, int]:
+def rin_get_charset(ctx: int) -> Tuple[str, int]:
     """Return the character set (vocabulary) used by the tokenizer.
 
     Parameters
@@ -713,13 +713,13 @@ def thor_get_charset(ctx: int) -> Tuple[str, int]:
     with native_lock:
         lib = load_library()
         vocab_size = ctypes.c_int()
-        charset = lib.thor_get_charset(ctx, ctypes.byref(vocab_size))
+        charset = lib.rin_get_charset(ctx, ctypes.byref(vocab_size))
         if not charset:
-            raise ThorError("thor_get_charset returned NULL")
+            raise RinError("rin_get_charset returned NULL")
         return charset.decode("utf-8"), vocab_size.value
 
 
-def thor_encode(ctx: int, text: str, max_ids: int = 0) -> List[int]:
+def rin_encode(ctx: int, text: str, max_ids: int = 0) -> List[int]:
     """Encode a text string into a sequence of token IDs.
 
     Parameters
@@ -742,19 +742,19 @@ def thor_encode(ctx: int, text: str, max_ids: int = 0) -> List[int]:
         if max_ids <= 0:
             max_ids = len(text) * 4 + 256
         ids = (ctypes.c_uint32 * max_ids)()
-        n = lib.thor_encode(ctx, text.encode("utf-8"), ids, max_ids)
+        n = lib.rin_encode(ctx, text.encode("utf-8"), ids, max_ids)
         if n < 0:
-            raise ThorEncodeError(
-                f"thor_encode failed with return code {n}"
+            raise RinEncodeError(
+                f"rin_encode failed with return code {n}"
             )
         return list(ids[:n])
 
 
-class ThorEncodeError(ThorError):
-    """Raised when :func:`thor_encode` fails."""
+class RinEncodeError(RinError):
+    """Raised when :func:`rin_encode` fails."""
 
 
-def thor_decode(ctx: int, ids: List[int]) -> str:
+def rin_decode(ctx: int, ids: List[int]) -> str:
     """Decode a sequence of token IDs back into a text string.
 
     Parameters
@@ -774,11 +774,11 @@ def thor_decode(ctx: int, ids: List[int]) -> str:
         arr = (ctypes.c_uint32 * len(ids))(*ids)
         max_text = len(ids) * 16 + 256
         buf = ctypes.create_string_buffer(max_text)
-        lib.thor_decode(ctx, arr, len(ids), buf, max_text)
+        lib.rin_decode(ctx, arr, len(ids), buf, max_text)
         return buf.value.decode("utf-8")
 
 
-def thor_get_energy_joules(ctx: int) -> float:
+def rin_get_energy_joules(ctx: int) -> float:
     """Return accumulated energy consumption in joules.
 
     Parameters
@@ -793,10 +793,10 @@ def thor_get_energy_joules(ctx: int) -> float:
     """
     with native_lock:
         lib = load_library()
-        return lib.thor_get_energy_joules(ctx)
+        return lib.rin_get_energy_joules(ctx)
 
 
-def thor_get_energy_millijoules(ctx: int) -> float:
+def rin_get_energy_millijoules(ctx: int) -> float:
     """Return accumulated energy consumption in millijoules.
 
     Parameters
@@ -811,10 +811,10 @@ def thor_get_energy_millijoules(ctx: int) -> float:
     """
     with native_lock:
         lib = load_library()
-        return lib.thor_get_energy_millijoules(ctx)
+        return lib.rin_get_energy_millijoules(ctx)
 
 
-def thor_get_inference_count(ctx: int) -> int:
+def rin_get_inference_count(ctx: int) -> int:
     """Return the total number of inference calls made so far.
 
     Parameters
@@ -829,10 +829,10 @@ def thor_get_inference_count(ctx: int) -> int:
     """
     with native_lock:
         lib = load_library()
-        return lib.thor_get_inference_count(ctx)
+        return lib.rin_get_inference_count(ctx)
 
 
-def thor_get_total_tokens(ctx: int) -> int:
+def rin_get_total_tokens(ctx: int) -> int:
     """Return the total number of tokens processed so far.
 
     Parameters
@@ -847,10 +847,10 @@ def thor_get_total_tokens(ctx: int) -> int:
     """
     with native_lock:
         lib = load_library()
-        return lib.thor_get_total_tokens(ctx)
+        return lib.rin_get_total_tokens(ctx)
 
 
-def thor_profile(
+def rin_profile(
     ctx: int,
     mode: int,
     num_warmup: int,
@@ -863,7 +863,7 @@ def thor_profile(
     ctx : int
         Runtime context handle.
     mode : int
-        Inference mode to profile (one of ``THOR_MODE_*``).
+        Inference mode to profile (one of ``RIN_MODE_*``).
     num_warmup : int
         Number of warm-up iterations.
     num_iter : int
@@ -876,7 +876,7 @@ def thor_profile(
 
     Raises
     ------
-    ThorError
+    RinError
         If profiling fails.
     """
     with native_lock:
@@ -884,7 +884,7 @@ def thor_profile(
         ms_per_token = ctypes.c_double()
         tokens_per_sec = ctypes.c_double()
         _check(
-            lib.thor_profile(
+            lib.rin_profile(
                 ctx,
                 mode,
                 num_warmup,
@@ -896,7 +896,7 @@ def thor_profile(
         return ms_per_token.value, tokens_per_sec.value
 
 
-def thor_version() -> str:
+def rin_version() -> str:
     """Return the version string of the RIN C library.
 
     Returns
@@ -905,11 +905,11 @@ def thor_version() -> str:
         Version string (library-internal format).
     """
     lib = load_library()
-    raw = lib.thor_version()
+    raw = lib.rin_version()
     return raw.decode("utf-8") if raw else ""
 
 
-def thor_version_numbers() -> Tuple[int, int, int]:
+def rin_version_numbers() -> Tuple[int, int, int]:
     """Return the version as ``(major, minor, patch)`` integers.
 
     Returns
@@ -922,7 +922,7 @@ def thor_version_numbers() -> Tuple[int, int, int]:
         major = ctypes.c_uint32()
         minor = ctypes.c_uint32()
         patch = ctypes.c_uint32()
-        lib.thor_version_numbers(
+        lib.rin_version_numbers(
             ctypes.byref(major), ctypes.byref(minor), ctypes.byref(patch)
         )
         return major.value, minor.value, patch.value

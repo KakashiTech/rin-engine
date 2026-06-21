@@ -1,17 +1,17 @@
 /*
- * rin_test_suite.h - Suite de Tests de Validación RIN
+ * rin_test_suite.h - RIN Validation Test Suite
  * 
- * Evasión de Hype: Pruebas reales que definen éxito del sistema
+ * Hype Evasion: Real tests that define system success
  * 
- * Tests implementados:
- * 1. Joule-Check:        Eficiencia energética real (< 0.5W/1K tokens)
- * 2. Fidelity-Check:     Fidelidad semántica (>99% vs maestro)
- * 3. Latency-Check:      Latencia en hardware humilde (>15 tok/s en RPi4)
- * 4. Thermal-Check:      Robustez térmica (<15°C delta en 30min)
- * 5. Numerical-Check:    Fidelidad numérica bit-exact vs flotante
- * 6. Sparsity-Check:     90%+ conexiones inactivas con phase gate
- * 7. Memory-Check:       Uso determinístico de memoria
- * 8. Topology-Check:     Preservación de números de Betti post-distillation
+ * Implemented tests:
+ * 1. Joule-Check:        Real energy efficiency (< 0.5W/1K tokens)
+ * 2. Fidelity-Check:     Semantic fidelity (>99% vs master)
+ * 3. Latency-Check:      Latency on humble hardware (>15 tok/s on RPi4)
+ * 4. Thermal-Check:      Thermal robustness (<15°C delta in 30min)
+ * 5. Numerical-Check:    Bit-exact numerical fidelity vs floating point
+ * 6. Sparsity-Check:     90%+ inactive connections with phase gate
+ * 7. Memory-Check:       Deterministic memory usage
+ * 8. Topology-Check:     Betti number preservation post-distillation
  */
 
 #ifndef RIN_TEST_SUITE_H
@@ -36,13 +36,13 @@ extern "C" {
 #endif
 
 /* ============================================================================
- * CONFIGURACIÓN DE TESTS
+ * TEST CONFIGURATION
  * ============================================================================ */
 
 #define RIN_TEST_MAX_NAME_LEN 64
 #define RIN_TEST_MAX_MESSAGE_LEN 256
 
-/* Umbrales de validación */
+/* Validation thresholds */
 #define RIN_TEST_TARGET_WATTS_PER_1K    0.5f    /* Joule-Check */
 #define RIN_TEST_TARGET_TOKENS_PER_SEC  15.0f   /* Latency-Check */
 #define RIN_TEST_TARGET_THERMAL_DELTA   15.0f   /* Thermal-Check */
@@ -51,24 +51,24 @@ extern "C" {
 #define RIN_TEST_TARGET_TOPO_TOLERANCE  0.10f   /* Topology-Check */
 
 /* ============================================================================
- * ESTRUCTURAS DE DATOS
+ * DATA STRUCTURES
  * ============================================================================ */
 
 /*
- * RIN_TestResult - Resultado de un test individual
+ * RIN_TestResult - Result of an individual test
  */
 typedef struct {
     char name[RIN_TEST_MAX_NAME_LEN];
     bool passed;
-    float value;               /* Valor medido */
-    float threshold;           /* Umbral requerido */
+    float value;               /* Measured value */
+    float threshold;           /* Required threshold */
     char unit[16];
     char message[RIN_TEST_MAX_MESSAGE_LEN];
-    uint64_t duration_ns;      /* Tiempo que tomó el test */
+    uint64_t duration_ns;      /* Time the test took */
 } RIN_TestResult;
 
 /*
- * RIN_TestSuite - Colección de tests
+ * RIN_TestSuite - Collection of tests
  */
 typedef struct {
     RIN_TestResult* results;
@@ -80,19 +80,19 @@ typedef struct {
 } RIN_TestSuite;
 
 /*
- * RIN_TestConfig - Configuración para tests
+ * RIN_TestConfig - Configuration for tests
  */
 typedef struct {
-    uint32_t tokens_to_generate;   /* Tokens para tests de inferencia */
-    uint32_t warmup_tokens;        /* Tokens de calentamiento */
-    float    thermal_duration_sec;   /* Duración test térmico */
-    uint32_t fidelity_sample_size;   /* Muestras para test de fidelidad */
-    bool     skip_slow_tests;        /* Saltar tests lentos (thermal) */
+    uint32_t tokens_to_generate;   /* Tokens for inference tests */
+    uint32_t warmup_tokens;        /* Warmup tokens */
+    float    thermal_duration_sec;   /* Thermal test duration */
+    uint32_t fidelity_sample_size;   /* Samples for fidelity test */
+    bool     skip_slow_tests;        /* Skip slow tests (thermal) */
 } RIN_TestConfig;
 
 /* ============================================================================
- * FUNCIÓN: RIN_Test_InitSuite
- * Inicializa suite de tests
+ * FUNCTION: RIN_Test_InitSuite
+ * Initializes test suite
  * ============================================================================ */
 static inline int RIN_Test_InitSuite(RIN_TestSuite* suite, uint32_t max_tests) {
     if (!suite || max_tests == 0) return -1;
@@ -110,8 +110,8 @@ static inline int RIN_Test_InitSuite(RIN_TestSuite* suite, uint32_t max_tests) {
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_Test_DestroySuite
- * Limpia suite
+ * FUNCTION: RIN_Test_DestroySuite
+ * Cleans up suite
  * ============================================================================ */
 static inline void RIN_Test_DestroySuite(RIN_TestSuite* suite) {
     if (!suite) return;
@@ -126,8 +126,8 @@ static inline void RIN_Test_DestroySuite(RIN_TestSuite* suite) {
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_Test_AddResult
- * Agrega resultado a suite
+ * FUNCTION: RIN_Test_AddResult
+ * Adds result to suite
  * ============================================================================ */
 static inline void RIN_Test_AddResult(RIN_TestSuite* suite, const RIN_TestResult* result) {
     if (!suite || !result || suite->num_tests >= suite->max_tests) return;
@@ -146,8 +146,8 @@ static inline void RIN_Test_AddResult(RIN_TestSuite* suite, const RIN_TestResult
 
 /* ============================================================================
  * TEST 1: Joule-Check (Energy Efficiency)
- * Mide: Watts por cada 1000 tokens generados
- * Meta: < 0.5W por 1000 tokens = 20x vs PyTorch estándar (~10W)
+ * Measures: Watts per 1000 generated tokens
+ * Target: < 0.5W per 1000 tokens = 20x vs standard PyTorch (~10W)
  * ============================================================================ */
 static inline RIN_TestResult RIN_Test_JouleCheck(RIN_EnergyMeter* meter,
                                                 uint32_t tokens) {
@@ -166,26 +166,26 @@ static inline RIN_TestResult RIN_Test_JouleCheck(RIN_EnergyMeter* meter,
         return result;
     }
     
-    /* Iniciar medición */
+    /* Start measurement */
     RIN_EnergyMeasurement meas;
     RIN_EnergyMeter_StartMeasurement(meter, &meas);
     
-    /* Simular generación de tokens */
-    /* En implementación real: llamar a RIN_Inference() aquí */
+    /* Simulate token generation */
+    /* In real implementation: call RIN_Inference() here */
     volatile uint32_t dummy_sum = 0;
     for (uint32_t t = 0; t < tokens * 1000; t++) {
-        dummy_sum += t;  /* Trabajo sintético */
+        dummy_sum += t;  /* Synthetic work */
         if (t % 100 == 0) {
-            RIN_DPTM_YieldUltraLow();  /* Simular yield de inferencia */
+            RIN_DPTM_YieldUltraLow();  /* Simulate inference yield */
         }
     }
-    (void)dummy_sum;  /* Evitar warning unused */
+    (void)dummy_sum;  /* Avoid unused warning */
     
-    /* Finalizar medición */
+    /* End measurement */
     double joules = RIN_EnergyMeter_EndMeasurement(meter, &meas, RIN_RAPL_DOMAIN_PKG);
     uint64_t end_ns = RIN_DPTM_GetTimestampNs();
     
-    /* Calcular métricas */
+    /* Calculate metrics */
     RIN_EnergyMetrics metrics;
     RIN_EnergyMeter_ComputeMetrics(joules, tokens, end_ns - start_ns, &metrics);
     
@@ -204,8 +204,8 @@ static inline RIN_TestResult RIN_Test_JouleCheck(RIN_EnergyMeter* meter,
 
 /* ============================================================================
  * TEST 2: Fidelity-Check (Semantic Fidelity)
- * Valida: Precisión no cae más de 1% vs modelo maestro en GSM8K
- * Nota: Requiere dataset GSM8K - implementación simplificada
+ * Validates: Accuracy does not drop more than 1% vs master model on GSM8K
+ * Note: Requires GSM8K dataset - simplified implementation
  * ============================================================================ */
 static inline RIN_TestResult RIN_Test_FidelityCheck(void) {
     RIN_TestResult result = {0};
@@ -215,14 +215,14 @@ static inline RIN_TestResult RIN_Test_FidelityCheck(void) {
     
     uint64_t start_ns = RIN_DPTM_GetTimestampNs();
     
-    /* Placeholder - en implementación completa:
-     * 1. Cargar muestras de GSM8K
-     * 2. Ejecutar inferencia con RIN
-     * 3. Comparar con salidas de modelo maestro (Llama 3 8B)
-     * 4. Calcular accuracy relativa
+    /* Placeholder - in complete implementation:
+     * 1. Load samples from GSM8K
+     * 2. Run inference with RIN
+     * 3. Compare with master model outputs (Llama 3 8B)
+     * 4. Calculate relative accuracy
      */
     
-    /* Simulación: asumir 98.5% de fidelidad */
+    /* Simulation: assume 98.5% fidelity */
     float simulated_fidelity = 0.985f;
     
     result.value = simulated_fidelity;
@@ -239,8 +239,8 @@ static inline RIN_TestResult RIN_Test_FidelityCheck(void) {
 
 /* ============================================================================
  * TEST 3: Latency-Check (Humble Hardware)
- * Mide: Tokens por segundo en hardware de gama baja
- * Meta: > 15 tokens/seg en Raspberry Pi 4 o CPU 5+ años
+ * Measures: Tokens per second on low-end hardware
+ * Target: > 15 tokens/sec on Raspberry Pi 4 or 5+ year old CPU
  * ============================================================================ */
 static inline RIN_TestResult RIN_Test_LatencyCheck(uint32_t test_tokens) {
     RIN_TestResult result = {0};
@@ -250,7 +250,7 @@ static inline RIN_TestResult RIN_Test_LatencyCheck(uint32_t test_tokens) {
     
     uint64_t start_ns = RIN_DPTM_GetTimestampNs();
     
-    /* Simular trabajo de inferencia */
+    /* Simulate inference work */
     volatile uint32_t acc = 0;
     for (uint32_t i = 0; i < test_tokens * 10000; i++) {
         acc += i % 256;
@@ -285,8 +285,8 @@ static inline RIN_TestResult RIN_Test_LatencyCheck(uint32_t test_tokens) {
 
 /* ============================================================================
  * TEST 4: Thermal-Check (Thermal Robustness)
- * Mide: Delta de temperatura durante carga constante
- * Meta: < 15°C sobre temperatura ambiente en 30 minutos
+ * Measures: Temperature delta under constant load
+ * Target: < 15°C above ambient in 30 minutes
  * ============================================================================ */
 static inline RIN_TestResult RIN_Test_ThermalCheck(float duration_sec) {
     RIN_TestResult result = {0};
@@ -296,10 +296,10 @@ static inline RIN_TestResult RIN_Test_ThermalCheck(float duration_sec) {
     
     uint64_t start_ns = RIN_DPTM_GetTimestampNs();
     
-    /* Leer temperatura inicial */
+    /* Read initial temperature */
     FILE* fp = fopen("/sys/class/thermal/thermal_zone0/temp", "r");
     if (!fp) {
-        /* Fallback: probar thermal_zone1, zone2, etc. */
+        /* Fallback: try thermal_zone1, zone2, etc. */
         fp = fopen("/sys/class/thermal/thermal_zone1/temp", "r");
     }
     
@@ -320,7 +320,7 @@ static inline RIN_TestResult RIN_Test_ThermalCheck(float duration_sec) {
     }
     fclose(fp);
     
-    /* Carga sintética por duración especificada */
+    /* Synthetic load for specified duration */
     uint64_t target_ns = start_ns + (uint64_t)(duration_sec * 1e9);
     volatile uint64_t work = 0;
     
@@ -331,7 +331,7 @@ static inline RIN_TestResult RIN_Test_ThermalCheck(float duration_sec) {
     }
     (void)work;
     
-    /* Leer temperatura final */
+    /* Read final temperature */
     fp = fopen("/sys/class/thermal/thermal_zone0/temp", "r");
     if (!fp) fp = fopen("/sys/class/thermal/thermal_zone1/temp", "r");
     
@@ -361,18 +361,18 @@ static inline RIN_TestResult RIN_Test_ThermalCheck(float duration_sec) {
 
 /* ============================================================================
  * TEST 5: Numerical-Check (Bit-Exact Fidelity)
- * Valida: LIF multiplication-free produce mismos spikes que LIF flotante
- * (dentro de tolerancia por redondeo)
+ * Validates: Multiplication-free LIF produces same spikes as floating-point LIF
+ * (within rounding tolerance)
  * ============================================================================ */
 static inline RIN_TestResult RIN_Test_NumericalCheck(void) {
     RIN_TestResult result = {0};
     strncpy(result.name, "Numerical-Check: Bit-Exact Fidelity", RIN_TEST_MAX_NAME_LEN);
-    result.threshold = 0.95f;  /* 95% de coincidencia de spikes */
+    result.threshold = 0.95f;  /* 95% spike match rate */
     strncpy(result.unit, "spike match", 16);
     
     uint64_t start_ns = RIN_DPTM_GetTimestampNs();
     
-    /* Crear neuronas LIF Q15 y flotantes */
+    /* Create Q15 and floating-point LIF neurons */
     RIN_LIF_Config config = {
         .threshold_q15 = 10000,
         .decay_shift = 2,
@@ -393,13 +393,13 @@ static inline RIN_TestResult RIN_Test_NumericalCheck(void) {
     int total = 1000;
     
     for (int i = 0; i < total; i++) {
-        int16_t input_q15 = (i % 256) * 128;  /* Input sintético */
+        int16_t input_q15 = (i % 256) * 128;  /* Synthetic input */
         float input_f = (float)input_q15 / 32768.0f;
         
         /* Update Q15 */
         bool spike_q15 = RIN_LIF_Update(&neuron_q15, input_q15);
         
-        /* Update flotante equivalente */
+        /* Equivalent floating-point update */
         float_vmem = float_vmem * float_decay + input_f * float_input_scale;
         bool spike_f = float_vmem >= float_threshold;
         if (spike_f) float_vmem = 0;
@@ -422,7 +422,7 @@ static inline RIN_TestResult RIN_Test_NumericalCheck(void) {
 
 /* ============================================================================
  * TEST 6: Sparsity-Check (Real Sparsity)
- * Valida: Phase gate logra 90%+ de conexiones inactivas sin pérdida
+ * Validates: Phase gate achieves 90%+ inactive connections without loss
  * ============================================================================ */
 static inline RIN_TestResult RIN_Test_SparsityCheck(void) {
     RIN_TestResult result = {0};
@@ -432,15 +432,15 @@ static inline RIN_TestResult RIN_Test_SparsityCheck(void) {
     
     uint64_t start_ns = RIN_DPTM_GetTimestampNs();
     
-    /* Simular phase gate con configuración 90% */
+    /* Simulate phase gate with 90% configuration */
     RIN_PhaseGate_Config config = RIN_PHASE_GATE_CONFIG_90SPARSE();
     
-    /* Simular forward pass y contar activaciones */
+    /* Simulate forward pass and count activations */
     uint32_t total_connections = 10000;
     uint32_t active = 0;
     
     for (uint32_t i = 0; i < total_connections; i++) {
-        /* Simular decisión del gate */
+        /* Simulate gate decision */
         int16_t input_phase = (i * 137) % RIN_PHASE_TWO_PI_Q15;
         int16_t weight_phase = (i * 7919) % RIN_PHASE_TWO_PI_Q15;
         
@@ -465,17 +465,17 @@ static inline RIN_TestResult RIN_Test_SparsityCheck(void) {
 
 /* ============================================================================
  * TEST 7: Memory-Check (Deterministic Memory)
- * Valida: Arena allocator nunca falla durante inferencia
+ * Validates: Arena allocator never fails during inference
  * ============================================================================ */
 static inline RIN_TestResult RIN_Test_MemoryCheck(void) {
     RIN_TestResult result = {0};
     strncpy(result.name, "Memory-Check: Arena Determinism", RIN_TEST_MAX_NAME_LEN);
-    result.threshold = 1.0f;  /* 100% éxito requerido */
+    result.threshold = 1.0f;  /* 100% success required */
     strncpy(result.unit, "success rate", 16);
     
     uint64_t start_ns = RIN_DPTM_GetTimestampNs();
     
-    /* Crear arena */
+    /* Create arena */
     RIN_MemoryArena arena;
     int init_ok = RIN_MemoryArena_Init(&arena, 1024*1024, 512*1024, 512*1024);
     
@@ -486,7 +486,7 @@ static inline RIN_TestResult RIN_Test_MemoryCheck(void) {
         return result;
     }
     
-    /* Realizar múltiples allocations */
+    /* Perform multiple allocations */
     int allocs_ok = 0;
     int total_allocs = 1000;
     
@@ -496,7 +496,7 @@ static inline RIN_TestResult RIN_Test_MemoryCheck(void) {
             allocs_ok++;
         }
         
-        /* Reset periódico para simular inferencias consecutivas */
+        /* Periodic reset to simulate consecutive inferences */
         if (i % 100 == 99) {
             RIN_MemoryArena_ResetInference(&arena);
         }
@@ -519,7 +519,7 @@ static inline RIN_TestResult RIN_Test_MemoryCheck(void) {
 
 /* ============================================================================
  * TEST 8: Topology-Check (Topological Preservation)
- * Valida: Números de Betti se mantienen estables post-distillation
+ * Validates: Betti numbers remain stable post-distillation
  * ============================================================================ */
 static inline RIN_TestResult RIN_Test_TopologyCheck(void) {
     RIN_TestResult result = {0};
@@ -529,17 +529,17 @@ static inline RIN_TestResult RIN_Test_TopologyCheck(void) {
     
     uint64_t start_ns = RIN_DPTM_GetTimestampNs();
     
-    /* Crear datos sintéticos para maestro y estudiante */
+    /* Create synthetic data for teacher and student */
     float teacher_points[64];
     float student_points[64];
     
     for (int i = 0; i < 64; i++) {
         teacher_points[i] = sinf(i * 0.1f) * cosf(i * 0.05f);
-        /* Estudiante con 95% de fidelidad */
+        /* Student with 95% fidelity */
         student_points[i] = teacher_points[i] + ((float)(i % 5) - 2.0f) * 0.01f;
     }
     
-    /* Calcular Betti numbers */
+    /* Calculate Betti numbers */
     RIN_BettiNumbers teacher_betti = RIN_Betti_CalculateFromPoints(
         teacher_points, 16, 4, 1.0f, 2
     );
@@ -566,8 +566,8 @@ static inline RIN_TestResult RIN_Test_TopologyCheck(void) {
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_Test_RunAll
- * Ejecuta suite completa de tests
+ * FUNCTION: RIN_Test_RunAll
+ * Runs complete test suite
  * ============================================================================ */
 static inline void RIN_Test_RunAll(RIN_TestSuite* suite, 
                                    RIN_EnergyMeter* meter,
@@ -592,7 +592,7 @@ static inline void RIN_Test_RunAll(RIN_TestSuite* suite,
     RIN_TestResult latency = RIN_Test_LatencyCheck(config->tokens_to_generate);
     RIN_Test_AddResult(suite, &latency);
     
-    /* Test 4: Thermal (skip si configurado) */
+    /* Test 4: Thermal (skip if configured) */
     if (!config->skip_slow_tests) {
         RIN_TestResult thermal = RIN_Test_ThermalCheck(config->thermal_duration_sec);
         RIN_Test_AddResult(suite, &thermal);
@@ -616,8 +616,8 @@ static inline void RIN_Test_RunAll(RIN_TestSuite* suite,
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_Test_PrintReport
- * Imprime reporte final de tests
+ * FUNCTION: RIN_Test_PrintReport
+ * Prints final test report
  * ============================================================================ */
 static inline void RIN_Test_PrintReport(const RIN_TestSuite* suite) {
     if (!suite) return;

@@ -1,14 +1,14 @@
 /*
- * rin_core.h - API Principal Unificada del Sistema RIN
+ * rin_core.h - RIN System Unified Main API
  * 
- * Resonant Information Nexus - Punto de entrada unificado para inferencia
+ * Resonant Information Nexus - Unified entry point for inference
  * 
- * Uso típico:
- *   1. RIN_Init() - Inicializar contexto
- *   2. RIN_LoadWeights() - Cargar modelo cuantizado
- *   3. RIN_Inference() - Ejecutar inferencia
- *   4. RIN_GetMetrics() - Obtener métricas
- *   5. RIN_Destroy() - Limpieza
+ * Typical usage:
+ *   1. RIN_Init() - Initialize context
+ *   2. RIN_LoadWeights() - Load quantized model
+ *   3. RIN_Inference() - Run inference
+ *   4. RIN_GetMetrics() - Get metrics
+ *   5. RIN_Destroy() - Cleanup
  */
 
 #ifndef RIN_CORE_H
@@ -18,7 +18,10 @@
 #include <stdbool.h>
 #include <string.h>
 
-/* Incluir todos los módulos */
+/* Public API types (RinStatus, RinMode) */
+#include "rin_api.h"
+
+/* Include all modules */
 #include "rin_arena.h"
 #include "rin_dptm.h"
 #include "rin_lif_engine.h"
@@ -46,7 +49,7 @@ extern "C" {
 #define RIN_VERSION_STRING "RIN v1.0.0 - Resonant Information Nexus"
 
 /* ============================================================================
- * CONSTANTES
+ * CONSTANTS
  * ============================================================================ */
 
 #define RIN_MAX_LAYERS           64
@@ -55,18 +58,8 @@ extern "C" {
 #define RIN_MAX_TOKEN_ID         49999
 
 /* ============================================================================
- * ENUMERACIONES
+ * ENUMERATIONS
  * ============================================================================ */
-
-typedef enum {
-    RIN_STATUS_OK = 0,
-    RIN_STATUS_ERROR_INIT = -1,
-    RIN_STATUS_ERROR_MEMORY = -2,
-    RIN_STATUS_ERROR_WEIGHTS = -3,
-    RIN_STATUS_ERROR_INFERENCE = -4,
-    RIN_STATUS_ERROR_NOT_INITIALIZED = -5,
-    RIN_STATUS_ERROR_INVALID_INPUT = -6,
-} RIN_Status;
 
 typedef enum {
     RIN_PRECISION_Q15 = 0,
@@ -75,46 +68,38 @@ typedef enum {
     RIN_PRECISION_FLOAT16,
 } RIN_Precision;
 
-typedef enum {
-    RIN_MODE_MLP = 0,       /* GEMV → BSPN → ReLU → ... → PTsoftmax → Argmax */
-    RIN_MODE_SNN,           /* GEMV → LIF(×timesteps) → BSPN → ... → spike output */
-    RIN_MODE_ATTN,          /* GEMV → Attention → BSPN → ... → PTsoftmax → Sample */
-    RIN_MODE_THOR,          /* GEMV → ReLU → ... → clamp(uint8) (THOR heritage) */
-    RIN_MODE_TRANSFORMER,   /* Embed → Transformer blocks (MHA+FFN) → Sample (autoregressive) */
-} RIN_InferenceMode;
-
 /* ============================================================================
- * ESTRUCTURAS DE CONFIGURACIÓN
+ * CONFIGURATION STRUCTURES
  * ============================================================================ */
 
 /*
- * RIN_Config - Configuración de inicialización
+ * RIN_Config - Initialization configuration
  */
 typedef struct {
-    /* Dimensiones del modelo */
-    uint32_t model_dim;          /* Dimensión del modelo (embedding) */
-    uint32_t num_layers;         /* Número de capas LIF */
-    uint32_t num_heads;          /* Número de heads de atención */
-    uint32_t vocab_size;         /* Tamaño de vocabulario */
-    uint32_t max_seq_len;        /* Longitud máxima de secuencia */
+    /* Model dimensions */
+    uint32_t model_dim;          /* Model dimension (embedding) */
+    uint32_t num_layers;         /* Number of LIF layers */
+    uint32_t num_heads;          /* Number of attention heads */
+    uint32_t vocab_size;         /* Vocabulary size */
+    uint32_t max_seq_len;        /* Maximum sequence length */
     
-    /* Memoria */
-    uint32_t arena_size_mb;      /* Tamaño del arena allocator */
+    /* Memory */
+    uint32_t arena_size_mb;      /* Arena allocator size */
     
     /* SNN */
-    uint32_t timesteps;          /* Timesteps para SNN */
-    int16_t  lif_threshold;      /* Umbral LIF (Q15) */
-    uint8_t  lif_decay_shift;    /* Decay shift LIF */
+    uint32_t timesteps;          /* Timesteps for SNN */
+    int16_t  lif_threshold;      /* LIF threshold (Q15) */
+    uint8_t  lif_decay_shift;    /* LIF decay shift */
     
-    /* Modo de inferencia */
-    RIN_InferenceMode inference_mode;
+    /* Inference mode */
+    RinMode inference_mode;
     
-    /* Configuración de inferencia */
-    float    temperature;        /* Temperatura para sampling */
+    /* Inference configuration */
+    float    temperature;        /* Temperature for sampling */
     uint32_t top_k;              /* Top-k sampling */
     float    top_p;              /* Nucleus sampling p */
     
-    /* Precisión */
+    /* Precision */
     RIN_Precision precision;
     
     /* Phase gate */
@@ -130,104 +115,104 @@ typedef struct {
 } RIN_Config;
 
 /*
- * RIN_Token - Token con metadata
+ * RIN_Token - Token with metadata
  */
 typedef struct {
-    uint32_t id;                 /* ID del token en vocabulario */
-    float    logit;              /* Logit que generó este token */
-    float    probability;        /* Probabilidad softmax */
-    uint64_t generation_time_ns; /* Tiempo de generación */
+    uint32_t id;                 /* Token ID in vocabulary */
+    float    logit;              /* Logit that generated this token */
+    float    probability;        /* Softmax probability */
+    uint64_t generation_time_ns; /* Generation time */
 } RIN_Token;
 
 /*
- * RIN_Context - Contexto de inferencia (estado completo)
+ * RIN_Context - Inference context (full state)
  */
 typedef struct {
-    /* Versión y estado */
+    /* Version and state */
     uint32_t version;
     uint32_t initialized;
-    RIN_Status last_error;
+    RinStatus last_error;
     
-    /* Memoria */
+    /* Memory */
     RIN_MemoryArena arena;
     
-    /* Configuración (copia local) */
+    /* Configuration (local copy) */
     RIN_Config config;
     
-    /* Capas del modelo */
+    /* Model layers */
     RIN_LIF_Layer layers[RIN_MAX_LAYERS];
     RIN_BSPN_Params* norm_params;
     uint32_t num_layers;
     
-    /* Componentes espectrales */
+    /* Spectral components */
     RIN_PhaseGate_Layer* phase_gates;
     uint32_t num_phase_gates;
     
     /* Output */
     RIN_PTSoftmax_Table softmax_table;
     
-    /* Métricas y monitoreo */
+    /* Metrics and monitoring */
     RIN_EnergyMeter energy_meter;
     uint64_t inference_count;
     double total_energy_joules;
     uint64_t total_tokens_generated;
     
-    /* Buffer de trabajo */
+    /* Work buffers */
     int16_t* embedding_buffer;
     int16_t* hidden_buffer;
     uint8_t* spike_buffer;
     
-    /* Secuencia actual */
+    /* Current sequence */
     RIN_Token sequence[RIN_MAX_SEQ_LEN];
     uint32_t seq_len;
     
-    /* Internals (backends, modelos cargados) */
+    /* Internals (backends, loaded models) */
     void* _internal;
     
-    /* Últimos logits generados (para RIN_GenerateToken) */
+    /* Last generated logits (for RIN_GenerateToken) */
     int8_t last_logits[256];
     uint32_t last_logits_dim;
     
 } RIN_Context;
 
 /*
- * RIN_InferenceResult - Resultado de inferencia
+ * RIN_InferenceResult - Inference result
  */
 typedef struct {
-    RIN_Token* tokens;           /* Tokens generados */
-    uint32_t num_tokens;         /* Número de tokens generados */
+    RIN_Token* tokens;           /* Generated tokens */
+    uint32_t num_tokens;         /* Number of generated tokens */
     
-    /* Métricas de esta inferencia */
-    uint64_t latency_ns;         /* Tiempo total */
-    double energy_joules;        /* Energía consumida */
+    /* Metrics for this inference */
+    uint64_t latency_ns;         /* Total time */
+    double energy_joules;        /* Energy consumed */
     float tokens_per_second;     /* Throughput */
     
-    /* Estadísticas internas */
-    float avg_sparsity;          /* Sparsity promedio en capas */
-    uint32_t cache_hits;         /* Hits de KV cache (futuro) */
+    /* Internal statistics */
+    float avg_sparsity;          /* Average sparsity across layers */
+    uint32_t cache_hits;         /* KV cache hits (future) */
     
 } RIN_InferenceResult;
 
 /*
- * RIN_ModelStats - Estadísticas del modelo
+ * RIN_ModelStats - Model statistics
  */
 typedef struct {
-    uint32_t num_parameters;     /* Número total de parámetros */
-    uint32_t num_layers;         /* Número de capas */
-    uint32_t model_dim;          /* Dimensión del modelo */
+    uint32_t num_parameters;     /* Total number of parameters */
+    uint32_t num_layers;         /* Number of layers */
+    uint32_t model_dim;          /* Model dimension */
     
-    /* Memoria */
-    size_t weights_size_bytes;   /* Tamaño de pesos */
-    size_t activation_size_bytes; /* Tamaño de activaciones */
+    /* Memory */
+    size_t weights_size_bytes;   /* Weights size */
+    size_t activation_size_bytes; /* Activation size */
     
-    /* Cuantización */
+    /* Quantization */
     RIN_Precision precision;
-    uint8_t weight_bits;         /* Bits por peso */
+    uint8_t weight_bits;         /* Bits per weight */
     
 } RIN_ModelStats;
 
 /* ============================================================================
- * FUNCIONES DE VERSIÓN
+ * VERSION FUNCTIONS
  * ============================================================================ */
 
 static inline const char* RIN_GetVersion(void) {
@@ -241,11 +226,11 @@ static inline void RIN_GetVersionNumbers(uint32_t* major, uint32_t* minor, uint3
 }
 
 /* ============================================================================
- * FUNCIONES DE CONFIGURACIÓN
+ * CONFIGURATION FUNCTIONS
  * ============================================================================ */
 
 /*
- * RIN_GetDefaultConfig - Obtiene configuración por defecto recomendada
+ * RIN_GetDefaultConfig - Gets recommended default configuration
  */
 static inline RIN_Config RIN_GetDefaultConfig(void) {
     return (RIN_Config){
@@ -271,7 +256,7 @@ static inline RIN_Config RIN_GetDefaultConfig(void) {
 }
 
 /*
- * RIN_GetTinyConfig - Configuración para hardware muy limitado
+ * RIN_GetTinyConfig - Configuration for very limited hardware
  */
 static inline RIN_Config RIN_GetTinyConfig(void) {
     return (RIN_Config){
@@ -296,23 +281,23 @@ static inline RIN_Config RIN_GetTinyConfig(void) {
 }
 
 /* ============================================================================
- * FUNCIONES PRINCIPALES
+ * MAIN FUNCTIONS
  * ============================================================================ */
 
 /*
- * RIN_Init - Inicializa contexto RIN completo
+ * RIN_Init - Initializes full RIN context
  * 
- * @ctx:    Contexto a inicializar (pre-allocado por caller)
- * @config: Configuración
+ * @ctx:    Context to initialize (pre-allocated by caller)
+ * @config: Configuration
  * 
- * Retorna: RIN_STATUS_OK si éxito, código de error si falla
+ * Returns: RIN_STATUS_OK on success, error code on failure
  */
-static inline RIN_Status RIN_Init(RIN_Context* ctx, const RIN_Config* config) {
+static inline RinStatus RIN_Init(RIN_Context* ctx, const RIN_Config* config) {
     if (!ctx || !config) return RIN_STATUS_ERROR_INVALID_INPUT;
     
     memset(ctx, 0, sizeof(RIN_Context));
     
-    /* Inicializar arena */
+    /* Initialize arena */
     size_t inference_size = (size_t)config->arena_size_mb * 1024 * 1024 / 3;
     size_t scratch_size = inference_size;
     size_t persistent_size = inference_size;
@@ -321,10 +306,10 @@ static inline RIN_Status RIN_Init(RIN_Context* ctx, const RIN_Config* config) {
         return RIN_STATUS_ERROR_MEMORY;
     }
     
-    /* Copiar configuración */
+    /* Copy configuration */
     ctx->config = *config;
     
-    /* Inicializar capas LIF */
+    /* Initialize LIF layers */
     RIN_LIF_Config lif_config = {
         .threshold_q15 = config->lif_threshold,
         .decay_shift = config->lif_decay_shift,
@@ -341,7 +326,7 @@ static inline RIN_Status RIN_Init(RIN_Context* ctx, const RIN_Config* config) {
     }
     ctx->num_layers = config->num_layers;
     
-    /* Inicializar normalización */
+    /* Initialize normalization */
     ctx->norm_params = RIN_ALLOC_ARRAY(&ctx->arena, RIN_BSPN_Params, config->num_layers);
     if (!ctx->norm_params) {
         return RIN_STATUS_ERROR_MEMORY;
@@ -351,7 +336,7 @@ static inline RIN_Status RIN_Init(RIN_Context* ctx, const RIN_Config* config) {
         ctx->norm_params[l] = RIN_BSPN_DEFAULT_PARAMS();
     }
     
-    /* Inicializar phase gates */
+    /* Initialize phase gates */
     if (config->phase_gate_config.target_sparsity > 0) {
         ctx->phase_gates = RIN_ALLOC_ARRAY(&ctx->arena, RIN_PhaseGate_Layer, config->num_layers);
         if (ctx->phase_gates) {
@@ -364,15 +349,15 @@ static inline RIN_Status RIN_Init(RIN_Context* ctx, const RIN_Config* config) {
         }
     }
     
-    /* Inicializar softmax */
+    /* Initialize softmax */
     RIN_PTSoftmax_InitTable(&ctx->softmax_table, 32);
     
-    /* Inicializar medidor de energía */
+    /* Initialize energy meter */
     if (config->enable_energy_monitoring) {
         RIN_EnergyMeter_Init(&ctx->energy_meter);
     }
     
-    /* Allocar buffers de trabajo */
+    /* Allocate work buffers */
     ctx->embedding_buffer = RIN_ALLOC_ARRAY(&ctx->arena, int16_t, config->model_dim);
     ctx->hidden_buffer = RIN_ALLOC_ARRAY(&ctx->arena, int16_t, config->model_dim);
     ctx->spike_buffer = RIN_ALLOC_ARRAY(&ctx->arena, uint8_t, config->model_dim);
@@ -389,50 +374,50 @@ static inline RIN_Status RIN_Init(RIN_Context* ctx, const RIN_Config* config) {
 }
 
 /*
- * RIN_LoadWeights - Carga pesos cuantizados desde archivo
+ * RIN_LoadWeights - Loads quantized weights from file
  * 
- * Formato esperado: binario con header de metadatos
+ * Expected format: binary with metadata header
  * 
- * @ctx:  Contexto inicializado
- * @path: Ruta al archivo de pesos
+ * @ctx:  Initialized context
+ * @path: Path to weights file
  * 
- * Retorna: RIN_STATUS_OK si éxito
+ * Returns: RIN_STATUS_OK on success
  */
-RIN_Status RIN_LoadWeights(RIN_Context* ctx, const char* path);
+RinStatus RIN_LoadWeights(RIN_Context* ctx, const char* path);
 
 /*
- * RIN_Inference - Ejecuta inferencia completa
+ * RIN_Inference - Runs full inference
  * 
- * @ctx:         Contexto inicializado
- * @input_ids:   Array de token IDs de entrada
- * @num_input:   Cantidad de tokens de entrada
- * @max_output:  Máximo de tokens a generar
- * @result:      Estructura a poblar con resultados
+ * @ctx:         Initialized context
+ * @input_ids:   Array of input token IDs
+ * @num_input:   Number of input tokens
+ * @max_output:  Maximum tokens to generate
+ * @result:      Structure to populate with results
  * 
- * Retorna: RIN_STATUS_OK si éxito
+ * Returns: RIN_STATUS_OK on success
  */
-RIN_Status RIN_Inference(RIN_Context* ctx,
+RinStatus RIN_Inference(RIN_Context* ctx,
                           const uint32_t* input_ids,
                           uint32_t num_input,
                           uint32_t max_output,
                           RIN_InferenceResult* result);
 
 /*
- * RIN_GenerateToken - Genera un solo token
+ * RIN_GenerateToken - Generates a single token
  * 
- * Función de bajo nivel para control fino de generación
+ * Low-level function for fine-grained generation control
  */
-RIN_Status RIN_GenerateToken(RIN_Context* ctx, RIN_Token* next_token);
+RinStatus RIN_GenerateToken(RIN_Context* ctx, RIN_Token* next_token);
 
 /*
- * RIN_Reset - Reset para nueva sesión (conserva pesos)
+ * RIN_Reset - Reset for new session (keeps weights)
  * 
- * Limpia estados de neuronas y buffers, pero mantiene pesos cargados
+ * Clears neuron states and buffers, but keeps loaded weights
  */
 static inline void RIN_Reset(RIN_Context* ctx) {
     if (!ctx || !ctx->initialized) return;
     
-    /* Reset neuronas LIF */
+    /* Reset LIF neurons */
     for (uint32_t l = 0; l < ctx->num_layers; l++) {
         RIN_LIF_Layer_Reset(&ctx->layers[l]);
     }
@@ -442,42 +427,42 @@ static inline void RIN_Reset(RIN_Context* ctx) {
         RIN_PhaseGate_ResetStats(&ctx->phase_gates[g]);
     }
     
-    /* Reset buffers de arena (conserva pesos en persistent) */
+    /* Reset arena buffers (keeps weights in persistent) */
     RIN_MemoryArena_ResetInference(&ctx->arena);
     
-    /* Reset secuencia */
+    /* Reset sequence */
     ctx->seq_len = 0;
 }
 
 /*
- * RIN_Destroy - Limpieza completa
+ * RIN_Destroy - Complete cleanup
  */
-/* Destructor interno (implementado en rin_core.c) */
+/* Internal destructor (implemented in rin_core.c) */
 void RIN_Destroy_Internal(RIN_Context* ctx);
 
 static inline void RIN_Destroy(RIN_Context* ctx) {
     if (!ctx) return;
     
-    /* Cerrar medidor de energía */
+    /* Close energy meter */
     if (ctx->config.enable_energy_monitoring) {
         RIN_EnergyMeter_Close(&ctx->energy_meter);
     }
     
-    /* Liberar internal backend */
+    /* Free internal backend */
     RIN_Destroy_Internal(ctx);
     
-    /* Liberar arena (incluye TODO: pesos, buffers, etc.) */
+    /* Free arena (includes all: weights, buffers, etc.) */
     RIN_MemoryArena_Destroy(&ctx->arena);
     
     ctx->initialized = 0;
 }
 
 /* ============================================================================
- * FUNCIONES DE MÉTRICAS
+ * METRICS FUNCTIONS
  * ============================================================================ */
 
 /*
- * RIN_GetModelStats - Obtiene estadísticas del modelo
+ * RIN_GetModelStats - Gets model statistics
  */
 static inline void RIN_GetModelStats(const RIN_Context* ctx, RIN_ModelStats* stats) {
     if (!ctx || !stats) return;
@@ -486,20 +471,20 @@ static inline void RIN_GetModelStats(const RIN_Context* ctx, RIN_ModelStats* sta
     stats->model_dim = ctx->config.model_dim;
     stats->precision = ctx->config.precision;
     
-    /* Estimación de parámetros */
+    /* Parameter estimation */
     uint32_t params_per_layer = ctx->config.model_dim * ctx->config.model_dim;
     stats->num_parameters = params_per_layer * ctx->num_layers;
     
-    /* Tamaño de pesos */
+    /* Weights size */
     uint8_t bytes_per_param = (ctx->config.precision == RIN_PRECISION_Q15) ? 2 : 1;
     stats->weights_size_bytes = stats->num_parameters * bytes_per_param;
     
-    /* Activaciones */
+    /* Activations */
     stats->activation_size_bytes = ctx->config.model_dim * 2 * sizeof(int16_t);
 }
 
 /*
- * RIN_GetPerformanceMetrics - Obtiene métricas de rendimiento acumuladas
+ * RIN_GetPerformanceMetrics - Gets accumulated performance metrics
  */
 typedef struct {
     uint64_t total_inferences;
@@ -535,11 +520,11 @@ static inline void RIN_GetPerformanceMetrics(const RIN_Context* ctx,
 }
 
 /* ============================================================================
- * FUNCIONES DE UTILIDAD
+ * UTILITY FUNCTIONS
  * ============================================================================ */
 
 /*
- * RIN_PrintInfo - Imprime información del sistema
+ * RIN_PrintInfo - Prints system information
  */
 static inline void RIN_PrintInfo(const RIN_Context* ctx) {
     printf("\n========== %s ==========\n", RIN_GetVersion());
@@ -569,16 +554,16 @@ static inline void RIN_PrintInfo(const RIN_Context* ctx) {
 }
 
 /*
- * RIN_GetLastError - Obtiene último error
+ * RIN_GetLastError - Gets last error
  */
-static inline RIN_Status RIN_GetLastError(const RIN_Context* ctx) {
+static inline RinStatus RIN_GetLastError(const RIN_Context* ctx) {
     return ctx ? ctx->last_error : RIN_STATUS_ERROR_NOT_INITIALIZED;
 }
 
 /*
- * RIN_ErrorString - Convierte código de error a string
+ * RIN_ErrorString - Converts error code to string
  */
-static inline const char* RIN_ErrorString(RIN_Status status) {
+static inline const char* RIN_ErrorString(RinStatus status) {
     switch (status) {
         case RIN_STATUS_OK: return "OK";
         case RIN_STATUS_ERROR_INIT: return "Initialization error";
@@ -592,25 +577,25 @@ static inline const char* RIN_ErrorString(RIN_Status status) {
 }
 
 /* ============================================================================
- * MACROS DE CONVENIENCIA
+ * CONVENIENCE MACROS
  * ============================================================================ */
 
-/* Inicializar con configuración por defecto */
+/* Initialize with default configuration */
 #define RIN_INIT_DEFAULT(ctx) \
     RIN_Init((ctx), &RIN_GetDefaultConfig())
 
-/* Inicializar configuración tiny */
+/* Initialize tiny configuration */
 #define RIN_INIT_TINY(ctx) \
     RIN_Init((ctx), &RIN_GetTinyConfig())
 
-/* Quick inference: una línea */
+/* Quick inference: one line */
 #define RIN_QUICK_INFERENCE(ctx, input, n_in, output, n_out) \
     RIN_Inference((ctx), (input), (n_in), (n_out), (output))
 
 /*
- * RIN_GetCharSet - Obtiene el charset del modelo (Transformer)
- * Retorna: puntero a buffer interno con vocab_size chars, o NULL si no disponible
- * El charset se almacena en el archivo .rin después de los pesos
+ * RIN_GetCharSet - Gets the model charset (Transformer)
+ * Returns: pointer to internal buffer with vocab_size chars, or NULL if unavailable
+ * The charset is stored in the .rin file after the weights
  */
 const char* RIN_GetCharSet(RIN_Context* ctx, int* vocab_size_out);
 

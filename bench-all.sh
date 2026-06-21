@@ -39,7 +39,7 @@ fi
 # ----- Detect hardware -----
 CPU_MODEL=$(grep "model name" /proc/cpuinfo | head -1 | sed 's/.*: //')
 CPU_COUNT=$(nproc)
-THOR_VERSION=$(python3 -c "from rin import RinEngine; print(RinEngine.version())" 2>/dev/null || echo "unknown")
+RIN_VERSION=$(python3 -c "from rin import RinEngine; print(RinEngine.version())" 2>/dev/null || echo "unknown")
 
 echo "============================================="
 echo " RIN Engine Benchmark Suite"
@@ -48,7 +48,7 @@ echo " Date:       $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo " Host:       $(hostname)"
 echo " CPU:        $CPU_MODEL"
 echo " Cores:      $CPU_COUNT"
-echo " RIN Engine ver:   $THOR_VERSION"
+echo " RIN Engine ver:   $RIN_VERSION"
 echo " Model:      $MODEL"
 echo " Iterations: $ITERATIONS"
 echo "============================================="
@@ -56,7 +56,7 @@ echo ""
 
 # ----- 1. RIN Engine inference benchmark (Python API) -----
 echo "[1] RIN Engine INT8 (Python API) ..."
-THOR_TPS=$(python3 -c "
+RIN_TPS=$(python3 -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
 from rin import RinEngine
@@ -68,7 +68,7 @@ try:
 finally:
     eng.close()
 " 2>&1)
-THOR_MS=$(python3 -c "
+RIN_MS=$(python3 -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
 from rin import RinEngine
@@ -80,11 +80,11 @@ try:
 finally:
     eng.close()
 " 2>&1)
-echo "   $THOR_TPS tok/s  ($THOR_MS ms/tok)"
+echo "   $RIN_TPS tok/s  ($RIN_MS ms/tok)"
 
 # ----- 2. RIN Engine energy measurement -----
 echo "[2] RIN Engine INT8 energy ..."
-THOR_ENERGY=$(python3 -c "
+RIN_ENERGY=$(python3 -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
 from rin import RinEngine
@@ -101,7 +101,7 @@ try:
 finally:
     eng.close()
 " 2>&1)
-echo "   $THOR_ENERGY µJ/tok"
+echo "   $RIN_ENERGY µJ/tok"
 
 # ----- 3. ONNX Runtime baseline (if available) -----
 ONNX_TPS="N/A"
@@ -160,14 +160,14 @@ echo " RESULTS"
 echo "============================================="
 printf " %-25s %12s %12s\n" "Backend" "tok/s" "ms/tok"
 printf " %-25s %12s %12s\n" "-------------------------" "------------" "-----------"
-printf " %-25s %12s %12s\n" "RIN Engine INT8" "$THOR_TPS" "$THOR_MS ms"
+printf " %-25s %12s %12s\n" "RIN Engine INT8" "$RIN_TPS" "$RIN_MS ms"
 
 if [ "$ONNX_OK" -eq 1 ]; then
     printf " %-25s %12s %12s\n" "ONNX FP32" "$ONNX_TPS" "$ONNX_MS ms"
-    SPEEDUP=$(echo "scale=2; $ONNX_MS / $THOR_MS" | bc 2>/dev/null || echo "?")
+    SPEEDUP=$(echo "scale=2; $ONNX_MS / $RIN_MS" | bc 2>/dev/null || echo "?")
     printf " %-25s %12s\n" "Speedup vs ONNX" "${SPEEDUP}x"
 fi
-printf " %-25s %12s\n" "Energy" "$THOR_ENERGY µJ/tok"
+printf " %-25s %12s\n" "Energy" "$RIN_ENERGY µJ/tok"
 echo ""
 
 # ----- JSON output -----
@@ -177,10 +177,10 @@ if [ "$JSON_OUT" -eq 1 ]; then
   "date": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
   "cpu": "$CPU_MODEL",
   "cores": $CPU_COUNT,
-  "thor_version": "$THOR_VERSION",
-  "thor_tps": $THOR_TPS,
-  "thor_ms_per_token": $THOR_MS,
-  "thor_energy_uj_per_token": $THOR_ENERGY,
+  "rin_version": "$RIN_VERSION",
+  "rin_tps": $RIN_TPS,
+  "rin_ms_per_token": $RIN_MS,
+  "rin_energy_uj_per_token": $RIN_ENERGY,
   "onnx_tps": "$ONNX_TPS",
   "onnx_ms_per_token": "$ONNX_MS",
   "speedup_vs_onnx": "$SPEEDUP"

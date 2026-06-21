@@ -18,25 +18,25 @@ extern "C" {
 /*  ARM NEON                                                         */
 /* ----------------------------------------------------------------- */
 
-int  thor_neon_available(void);
-void thor_neon_sgemm(const float *A, const float *B, float *C,
+int  rin_neon_available(void);
+void rin_neon_sgemm(const float *A, const float *B, float *C,
                      int M, int N, int K, const float *bias);
-void thor_neon_sgemv(const float *A, const float *x, float *y,
+void rin_neon_sgemv(const float *A, const float *x, float *y,
                      int M, int N, const float *bias);
-void thor_neon_softmax(float *x, int n);
-void thor_neon_int8_gemm(const int8_t *A, const int8_t *B, int32_t *C,
+void rin_neon_softmax(float *x, int n);
+void rin_neon_int8_gemm(const int8_t *A, const int8_t *B, int32_t *C,
                          int M, int N, int K, const int32_t *bias);
 
 /* ----------------------------------------------------------------- */
 /*  WASM SIMD                                                        */
 /* ----------------------------------------------------------------- */
 
-int  thor_wasm_available(void);
-void thor_wasm_sgemm(const float *A, const float *B, float *C,
+int  rin_wasm_available(void);
+void rin_wasm_sgemm(const float *A, const float *B, float *C,
                      int M, int N, int K, const float *bias);
-void thor_wasm_sgemv(const float *A, const float *x, float *y,
+void rin_wasm_sgemv(const float *A, const float *x, float *y,
                      int M, int N, const float *bias);
-void thor_wasm_softmax(float *x, int n);
+void rin_wasm_softmax(float *x, int n);
 
 /* ----------------------------------------------------------------- */
 /*  Auto-detection helper                                            */

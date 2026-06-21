@@ -93,31 +93,31 @@ def _try_ctypes() -> bool:
 
     try:
         from ._rin_native import (
-            ThorMode as _TM,
-            ThorStatus as _TS,
-            ThorError as RinError,
-            thor_create,
-            thor_destroy,
-            thor_load_model,
-            thor_get_model_info,
-            thor_set_mode,
-            thor_get_mode,
-            thor_set_temperature,
-            thor_set_top_k,
-            thor_set_top_p,
-            thor_set_power_budget,
-            thor_infer,
-            thor_free_result,
-            thor_encode,
-            thor_decode,
-            thor_get_charset,
-            thor_get_energy_joules,
-            thor_get_energy_millijoules,
-            thor_get_inference_count,
-            thor_get_total_tokens,
-            thor_profile,
-            thor_version,
-            thor_version_numbers,
+            RinMode as _RM,
+            RinStatus as _RS,
+            RinError as RinError,
+            rin_create,
+            rin_destroy,
+            rin_load_model,
+            rin_get_model_info,
+            rin_set_mode,
+            rin_get_mode,
+            rin_set_temperature,
+            rin_set_top_k,
+            rin_set_top_p,
+            rin_set_power_budget,
+            rin_infer,
+            rin_free_result,
+            rin_encode,
+            rin_decode,
+            rin_get_charset,
+            rin_get_energy_joules,
+            rin_get_energy_millijoules,
+            rin_get_inference_count,
+            rin_get_total_tokens,
+            rin_profile,
+            rin_version,
+            rin_version_numbers,
         )
     except ImportError as e:
         logger.debug("ctypes backend not available: %s", e)
@@ -132,14 +132,14 @@ def _try_ctypes() -> bool:
         """Compatibility wrapper: exposes the same API as native RinContext."""
 
         def __init__(self) -> None:
-            self._ctx: int = thor_create()
+            self._ctx: int = rin_create()
             self._closed: bool = False
 
         def load_model(self, path: str) -> None:
-            thor_load_model(self._ctx, path)
+            rin_load_model(self._ctx, path)
 
         def get_model_info(self) -> Dict[str, Union[int, float]]:
-            info = thor_get_model_info(self._ctx)
+            info = rin_get_model_info(self._ctx)
             return {
                 "num_layers": info.num_layers,
                 "model_dim": info.model_dim,
@@ -155,7 +155,7 @@ def _try_ctypes() -> bool:
         def infer(
             self, input_ids: List[int], max_output: int = 1
         ) -> Dict[str, Any]:
-            result = thor_infer(self._ctx, input_ids, len(input_ids), max_output)
+            result = rin_infer(self._ctx, input_ids, len(input_ids), max_output)
             try:
                 tokens = (
                     [result.tokens[i] for i in range(result.num_tokens)]
@@ -170,62 +170,62 @@ def _try_ctypes() -> bool:
                     "latency_ns": result.latency_ns,
                 }
             finally:
-                thor_free_result(result)
+                rin_free_result(result)
 
         def encode(self, text: str) -> List[int]:
-            return thor_encode(self._ctx, text)
+            return rin_encode(self._ctx, text)
 
         def decode(self, ids: List[int]) -> str:
-            return thor_decode(self._ctx, ids)
+            return rin_decode(self._ctx, ids)
 
         def get_charset(self) -> str:
-            s, _ = thor_get_charset(self._ctx)
+            s, _ = rin_get_charset(self._ctx)
             return s
 
         def set_temperature(self, v: float) -> None:
-            thor_set_temperature(self._ctx, v)
+            rin_set_temperature(self._ctx, v)
 
         def set_top_k(self, v: int) -> None:
-            thor_set_top_k(self._ctx, v)
+            rin_set_top_k(self._ctx, v)
 
         def set_top_p(self, v: float) -> None:
-            thor_set_top_p(self._ctx, v)
+            rin_set_top_p(self._ctx, v)
 
         def set_power_budget(self, v: float) -> None:
-            thor_set_power_budget(self._ctx, v)
+            rin_set_power_budget(self._ctx, v)
 
         @property
         def mode(self) -> int:
-            return thor_get_mode(self._ctx)
+            return rin_get_mode(self._ctx)
 
         @mode.setter
         def mode(self, value: int) -> None:
-            thor_set_mode(self._ctx, value)
+            rin_set_mode(self._ctx, value)
 
         @property
         def energy_joules(self) -> float:
-            return thor_get_energy_joules(self._ctx)
+            return rin_get_energy_joules(self._ctx)
 
         @property
         def energy_millijoules(self) -> float:
-            return thor_get_energy_millijoules(self._ctx)
+            return rin_get_energy_millijoules(self._ctx)
 
         @property
         def inference_count(self) -> int:
-            return thor_get_inference_count(self._ctx)
+            return rin_get_inference_count(self._ctx)
 
         @property
         def total_tokens(self) -> int:
-            return thor_get_total_tokens(self._ctx)
+            return rin_get_total_tokens(self._ctx)
 
         def profile(
             self, mode: int, warmup: int = 10, iterations: int = 100
         ) -> Tuple[float, float]:
-            return thor_profile(self._ctx, mode, warmup, iterations)
+            return rin_profile(self._ctx, mode, warmup, iterations)
 
         def close(self) -> None:
             if not self._closed and self._ctx:
-                thor_destroy(self._ctx)
+                rin_destroy(self._ctx)
             self._closed = True
             self._ctx = 0
 
@@ -234,11 +234,11 @@ def _try_ctypes() -> bool:
 
     RinContext = _CtypesContext
 
-    MODE_MLP = _TM.MLP
-    MODE_SNN = _TM.SNN
-    MODE_ATTN = _TM.ATTN
-    MODE_THOR = _TM.THOR
-    MODE_TRANSFORMER = _TM.TRANSFORMER
+    MODE_MLP = _RM.MLP
+    MODE_SNN = _RM.SNN
+    MODE_ATTN = _RM.ATTN
+    MODE_THOR = _RM.THOR
+    MODE_TRANSFORMER = _RM.TRANSFORMER
 
     return True
 

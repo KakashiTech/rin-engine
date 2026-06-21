@@ -1,8 +1,10 @@
 # Build artifacts
 *.o
 *.so
+*.cpython-*.so
 *.pyc
 __pycache__/
+.pytest_cache/
 build/
 dist/
 *.egg-info/
@@ -26,8 +28,6 @@ energy_comparison_*/
 # Revolutionary blueprint (private, not for public repo)
 PROGRES.MD
 
-# Misc
-thor_tiny_spgm.bin
-thor_big_*.bin
-tiny_gpt.rin
-.RIN_*
+# Model files
+*.rin
+model*.bin

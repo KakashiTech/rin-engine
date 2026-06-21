@@ -7,7 +7,7 @@ CFLAGS = -O3 -march=native -mtune=znver3 -mavx2 -mfma -fopenmp \
          -Wno-sign-compare -Wno-missing-field-initializers
 LDFLAGS = -lm -lrt -fopenmp -flto
 
-.PHONY: all clean test demo shared
+.PHONY: all clean test demo shared help
 
 all: rin_test rin_demo librin.so
 
@@ -49,6 +49,19 @@ demo: rin_demo
 rin_demo_bhrr: override CFLAGS += -DRIN_USE_BHRR
 rin_demo_bhrr: rin_demo
 	cp rin_demo rin_demo_bhrr
+
+help:
+	@echo "Targets:"
+	@echo "  make              - Build C library + test/demo binaries"
+	@echo "  make test         - Build and run C test suite"
+	@echo "  make shared       - Build librin.so for ctypes"
+	@echo "  make rin_demo_bhrr- Build with BHRR attention"
+	@echo "  make clean        - Remove build artifacts"
+	@echo "  make demo         - Run rin_demo --benchmark"
+	@echo ""
+	@echo "Python:"
+	@echo "  pip install -e .  - Install Python CLI + C extension"
+	@echo "  python -m pytest tests/ - Run Python tests"
 
 clean:
 	rm -f *.o rin_test rin_demo rin_demo_bhrr librin.so

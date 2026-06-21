@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
         printf("  Generate:   %d tokens\n", gen_count);
 
         uint64_t t0 = now_us();
-        RIN_Status st = RIN_Inference(&ctx, input, (uint32_t)n_prompt,
+        RinStatus st = RIN_Inference(&ctx, input, (uint32_t)n_prompt,
                                        (uint32_t)gen_count, &result);
         uint64_t t1 = now_us();
 

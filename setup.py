@@ -36,7 +36,7 @@ if all(os.path.isfile(s) for s in cengine_src):
                 "-O3", "-march=native", "-mtune=znver3",
                 "-mavx2", "-mfma",
                 "-fopenmp", "-funroll-loops", "-flto", "-ffast-math",
-                "-D_GNU_SOURCE", "-DTHOR_BUILD_PYTHON",
+                "-D_GNU_SOURCE", "-DRIN_BUILD_PYTHON",
             ],
             extra_link_args=["-fopenmp", "-lm", "-lrt", "-flto"],
         )
@@ -54,7 +54,7 @@ setup(
     description="RIN Engine Runtime - Universal Inference Engine",
     long_description=open("README.md").read() if os.path.exists("README.md") else "",
     long_description_content_type="text/markdown",
-    author="THOR Team",
+    author="RIN Team",
     packages=find_packages(),
     include_package_data=True,
     python_requires=">=3.8",

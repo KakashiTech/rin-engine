@@ -9,31 +9,31 @@ extern "C" {
 #endif
 
 #if defined(_WIN32) || defined(_WIN64)
-  #define THOR_EXPORT __declspec(dllexport)
+  #define RIN_EXPORT __declspec(dllexport)
 #else
-  #define THOR_EXPORT __attribute__((visibility("default")))
+  #define RIN_EXPORT __attribute__((visibility("default")))
 #endif
 
 /* Status codes */
 typedef enum {
-    THOR_OK = 0,
-    THOR_ERR_INIT = -1,
-    THOR_ERR_MEMORY = -2,
-    THOR_ERR_WEIGHTS = -3,
-    THOR_ERR_INFERENCE = -4,
-    THOR_ERR_NOT_INITIALIZED = -5,
-    THOR_ERR_INVALID_INPUT = -6,
-    THOR_ERR_UNSUPPORTED = -7,
-} ThorStatus;
+    RIN_STATUS_OK = 0,
+    RIN_STATUS_ERROR_INIT = -1,
+    RIN_STATUS_ERROR_MEMORY = -2,
+    RIN_STATUS_ERROR_WEIGHTS = -3,
+    RIN_STATUS_ERROR_INFERENCE = -4,
+    RIN_STATUS_ERROR_NOT_INITIALIZED = -5,
+    RIN_STATUS_ERROR_INVALID_INPUT = -6,
+    RIN_STATUS_ERROR_UNSUPPORTED = -7,
+} RinStatus;
 
 /* Inference modes */
 typedef enum {
-    THOR_MODE_MLP = 0,
-    THOR_MODE_SNN,
-    THOR_MODE_ATTN,
-    THOR_MODE_THOR,
-    THOR_MODE_TRANSFORMER,
-} ThorMode;
+    RIN_MODE_MLP = 0,
+    RIN_MODE_SNN,
+    RIN_MODE_ATTN,
+    RIN_MODE_THOR,
+    RIN_MODE_TRANSFORMER,
+} RinMode;
 
 /* Model info */
 typedef struct {
@@ -46,7 +46,7 @@ typedef struct {
     uint32_t num_parameters;
     uint32_t architecture;
     float size_mb;
-} ThorModelInfo;
+} RinModelInfo;
 
 /* Inference result */
 typedef struct {
@@ -55,64 +55,64 @@ typedef struct {
     double energy_joules;
     float tokens_per_second;
     uint64_t latency_ns;
-} ThorResult;
+} RinResult;
 
 /* Handle for the runtime context (opaque) */
-typedef struct ThorContext ThorContext;
+typedef struct RinContext RinContext;
 
 /* ─── Lifecycle ─────────────────────────────────────────────────────────── */
 
-THOR_EXPORT ThorContext* thor_create(void);
-THOR_EXPORT void thor_destroy(ThorContext* ctx);
+RIN_EXPORT RinContext* rin_create(void);
+RIN_EXPORT void rin_destroy(RinContext* ctx);
 
 /* ─── Model loading ─────────────────────────────────────────────────────── */
 
-THOR_EXPORT ThorStatus thor_load_model(ThorContext* ctx, const char* model_path);
-THOR_EXPORT ThorStatus thor_get_model_info(ThorContext* ctx, ThorModelInfo* info);
+RIN_EXPORT RinStatus rin_load_model(RinContext* ctx, const char* model_path);
+RIN_EXPORT RinStatus rin_get_model_info(RinContext* ctx, RinModelInfo* info);
 
 /* ─── Configuration ─────────────────────────────────────────────────────── */
 
-THOR_EXPORT void thor_set_mode(ThorContext* ctx, ThorMode mode);
-THOR_EXPORT ThorMode thor_get_mode(ThorContext* ctx);
-THOR_EXPORT void thor_set_temperature(ThorContext* ctx, float temp);
-THOR_EXPORT void thor_set_top_k(ThorContext* ctx, uint32_t k);
-THOR_EXPORT void thor_set_top_p(ThorContext* ctx, float p);
-THOR_EXPORT void thor_set_power_budget(ThorContext* ctx, float watts);
+RIN_EXPORT void rin_set_mode(RinContext* ctx, RinMode mode);
+RIN_EXPORT RinMode rin_get_mode(RinContext* ctx);
+RIN_EXPORT void rin_set_temperature(RinContext* ctx, float temp);
+RIN_EXPORT void rin_set_top_k(RinContext* ctx, uint32_t k);
+RIN_EXPORT void rin_set_top_p(RinContext* ctx, float p);
+RIN_EXPORT void rin_set_power_budget(RinContext* ctx, float watts);
 
 /* ─── Inference ─────────────────────────────────────────────────────────── */
 
-THOR_EXPORT ThorStatus thor_infer(ThorContext* ctx,
+RIN_EXPORT RinStatus rin_infer(RinContext* ctx,
                                    const uint32_t* input_ids,
                                    uint32_t num_input,
                                    uint32_t max_output,
-                                   ThorResult* result);
-THOR_EXPORT void thor_free_result(ThorResult* result);
+                                   RinResult* result);
+RIN_EXPORT void rin_free_result(RinResult* result);
 
 /* ─── Tokenizer ─────────────────────────────────────────────────────────── */
 
-THOR_EXPORT const char* thor_get_charset(ThorContext* ctx, int* vocab_size);
-THOR_EXPORT int thor_encode(ThorContext* ctx, const char* text,
+RIN_EXPORT const char* rin_get_charset(RinContext* ctx, int* vocab_size);
+RIN_EXPORT int rin_encode(RinContext* ctx, const char* text,
                              uint32_t* ids, int max_ids);
-THOR_EXPORT void thor_decode(ThorContext* ctx, const uint32_t* ids,
+RIN_EXPORT void rin_decode(RinContext* ctx, const uint32_t* ids,
                               int n, char* text, int max_text);
 
 /* ─── Energy ────────────────────────────────────────────────────────────── */
 
-THOR_EXPORT double thor_get_energy_joules(ThorContext* ctx);
-THOR_EXPORT double thor_get_energy_millijoules(ThorContext* ctx);
-THOR_EXPORT uint64_t thor_get_inference_count(ThorContext* ctx);
-THOR_EXPORT uint64_t thor_get_total_tokens(ThorContext* ctx);
+RIN_EXPORT double rin_get_energy_joules(RinContext* ctx);
+RIN_EXPORT double rin_get_energy_millijoules(RinContext* ctx);
+RIN_EXPORT uint64_t rin_get_inference_count(RinContext* ctx);
+RIN_EXPORT uint64_t rin_get_total_tokens(RinContext* ctx);
 
 /* ─── Profiling ─────────────────────────────────────────────────────────── */
 
-THOR_EXPORT ThorStatus thor_profile(ThorContext* ctx, ThorMode mode,
+RIN_EXPORT RinStatus rin_profile(RinContext* ctx, RinMode mode,
                                       uint32_t num_warmup, uint32_t num_iter,
                                       double* ms_per_token, double* tokens_per_sec);
 
 /* ─── Version ───────────────────────────────────────────────────────────── */
 
-THOR_EXPORT const char* thor_version(void);
-THOR_EXPORT void thor_version_numbers(uint32_t* major, uint32_t* minor, uint32_t* patch);
+RIN_EXPORT const char* rin_version(void);
+RIN_EXPORT void rin_version_numbers(uint32_t* major, uint32_t* minor, uint32_t* patch);
 
 #ifdef __cplusplus
 }

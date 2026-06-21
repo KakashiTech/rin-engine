@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "RIN Engine - Experimental Neural Inference Runtime"
 readme = "README.md"
 license = {text = "MIT"}
-authors = [{name = "THOR Team"}]
+authors = [{name = "RIN Team"}]
 requires-python = ">=3.8"
 dependencies = ["numpy"]
 
@@ -17,3 +17,7 @@ Source = "https://github.com/KakashiTech/rin-engine"
 
 [project.scripts]
 rin = "rin.cli.main:main"
+
+[project.optional-dependencies]
+dev = ["pytest"]
+test = ["pytest"]

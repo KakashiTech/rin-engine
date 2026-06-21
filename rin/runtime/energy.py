@@ -20,7 +20,7 @@ _energy_cache: dict = {}
 def _get_energy_joules():
     if "joules" not in _energy_cache:
         try:
-            from rin._thor_native import rin_get_energy_joules as fn
+            from rin._rin_native import rin_get_energy_joules as fn
         except Exception:
             # Native path — energy is a property on the context
             fn = None
@@ -31,7 +31,7 @@ def _get_energy_joules():
 def _get_inference_count():
     if "count" not in _energy_cache:
         try:
-            from rin._thor_native import rin_get_inference_count as fn
+            from rin._rin_native import rin_get_inference_count as fn
         except Exception:
             fn = None
         _energy_cache["count"] = fn

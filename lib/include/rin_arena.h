@@ -1,11 +1,11 @@
 /*
- * rin_arena.h - Arena Allocator de Baja Entropía para RIN
+ * rin_arena.h - Low Entropy Arena Allocator for RIN
  * 
  * O(1) allocation, O(1) reset, zero fragmentation
- * Basado en: FurkanKirat/arena-allocator + ccgargantua/arena-allocator
+ * Based on: FurkanKirat/arena-allocator + ccgargantua/arena-allocator
  * 
- * ELIMINA new/malloc durante ciclo de inferencia
- * Solo pointer bumping sobre bloque contiguo pre-reservado
+ * ELIMINATES new/malloc during inference cycle
+ * Only pointer bumping on pre-reserved contiguous block
  */
 
 #ifndef RIN_ARENA_H
@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 /* ============================================================================
- * CONFIGURACIÓN
+ * CONFIGURATION
  * ============================================================================ */
 
 #ifndef RIN_ARENA_DEFAULT_ALIGN
@@ -34,42 +34,42 @@ extern "C" {
 #endif
 
 /* ============================================================================
- * ESTRUCTURAS DE DATOS
+ * DATA STRUCTURES
  * ============================================================================ */
 
 /*
- * RIN_MemPool - Bloque contiguo de RAM pre-reservado
- * Eliminamos new/malloc durante inferencia - solo pointer bumping
+ * RIN_MemPool - Pre-reserved contiguous RAM block
+ * Eliminates new/malloc during inference - only pointer bumping
  */
 typedef struct {
-    uint8_t* base;           /* Puntero base del bloque */
-    size_t   offset;         /* Offset actual (bump pointer) */
-    size_t   capacity;       /* Capacidad total en bytes */
-    size_t   high_watermark; /* Máximo uso para estadísticas */
+    uint8_t* base;           /* Base pointer of the block */
+    size_t   offset;         /* Current offset (bump pointer) */
+    size_t   capacity;       /* Total capacity in bytes */
+    size_t   high_watermark; /* Maximum usage for statistics */
 } RIN_MemPool;
 
 /*
- * RIN_MemoryArena - Colección de pools para workloads de diferentes lifetimes
+ * RIN_MemoryArena - Collection of pools for different lifetime workloads
  */
 typedef struct {
-    RIN_MemPool inference;   /* Pool para ciclo de inferencia */
-    RIN_MemPool scratch;     /* Pool temporal por-frame */
-    RIN_MemPool persistent;  /* Pool para pesos y bias */
+    RIN_MemPool inference;   /* Pool for inference cycle */
+    RIN_MemPool scratch;     /* Per-frame temporary pool */
+    RIN_MemPool persistent;  /* Pool for weights and bias */
 } RIN_MemoryArena;
 
 /* ============================================================================
- * FUNCIÓN: RIN_MemPool_Init
- * Inicializa un pool con capacidad fija
+ * FUNCTION: RIN_MemPool_Init
+ * Initializes a pool with fixed capacity
  * 
- * @pool:      Puntero a estructura pool
- * @capacity:  Bytes a pre-reservar
+ * @pool:      Pointer to pool structure
+ * @capacity:  Bytes to pre-reserve
  * 
- * Retorna: 0 si éxito, -1 si fallo
+ * Returns: 0 on success, -1 on failure
  * ============================================================================ */
 static inline int RIN_MemPool_Init(RIN_MemPool* pool, size_t capacity) {
     if (!pool || capacity == 0) return -1;
     
-    /* Single malloc upfront - no kernel switches después */
+    /* Single malloc upfront - no kernel switches afterwards */
     pool->base = (uint8_t*)aligned_alloc(RIN_ARENA_DEFAULT_ALIGN, capacity);
     if (!pool->base) return -1;
     
@@ -77,37 +77,37 @@ static inline int RIN_MemPool_Init(RIN_MemPool* pool, size_t capacity) {
     pool->capacity = capacity;
     pool->high_watermark = 0;
     
-    /* Prefetch hint para el allocator */
+    /* Prefetch hint for the allocator */
     __builtin_prefetch(pool->base, 1, 3);
     
     return 0;
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_MemPool_Alloc
+ * FUNCTION: RIN_MemPool_Alloc
  * Bump pointer allocation O(1)
  * 
- * @pool:   Puntero al pool
- * @size:   Bytes solicitados
- * @align:  Alineación requerida (potencia de 2)
+ * @pool:   Pointer to pool
+ * @size:   Bytes requested
+ * @align:  Required alignment (power of 2)
  * 
- * Retorna: Puntero al bloque asignado o NULL si falla
+ * Returns: Pointer to allocated block or NULL on failure
  * ============================================================================ */
 static inline void* RIN_MemPool_Alloc(RIN_MemPool* pool, size_t size, size_t align) {
     if (!pool || size == 0) return NULL;
     
-    /* Asegurar que align es potencia de 2 */
+    /* Ensure align is a power of 2 */
     if (align & (align - 1)) align = RIN_ARENA_DEFAULT_ALIGN;
     
-    /* Alineación bitwise (más rápido que modulo) */
+    /* Bitwise alignment (faster than modulo) */
     size_t mask = align - 1;
     size_t aligned_offset = (pool->offset + mask) & ~mask;
     size_t new_offset = aligned_offset + size;
     
-    /* Bounds check - hard fail en debug, soft en release */
+    /* Bounds check - hard fail in debug, soft in release */
     if (new_offset > pool->capacity) {
 #if RIN_DEBUG
-        __builtin_trap(); /* Intencional crash para debugging */
+        __builtin_trap(); /* Intentional crash for debugging */
 #else
         return NULL;
 #endif
@@ -124,21 +124,21 @@ static inline void* RIN_MemPool_Alloc(RIN_MemPool* pool, size_t size, size_t ali
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_MemPool_Reset
- * Reset O(1) - libera TODO de una vez
+ * FUNCTION: RIN_MemPool_Reset
+ * Reset O(1) - frees everything at once
  * 
- * NO libera memoria al OS - solo resetea offset para reutilización
+ * Does NOT release memory to OS - only resets offset for reuse
  * ============================================================================ */
 static inline void RIN_MemPool_Reset(RIN_MemPool* pool) {
     if (pool) {
         pool->offset = 0;
-        /* No tocamos high_watermark - útil para profiling */
+        /* We don't touch high_watermark - useful for profiling */
     }
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_MemPool_Free
- * Liberación completa del pool (libera al OS)
+ * FUNCTION: RIN_MemPool_Free
+ * Complete pool deallocation (frees to OS)
  * ============================================================================ */
 static inline void RIN_MemPool_Free(RIN_MemPool* pool) {
     if (pool && pool->base) {
@@ -149,24 +149,24 @@ static inline void RIN_MemPool_Free(RIN_MemPool* pool) {
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_MemPool_UsageRatio
- * Ratio de uso actual (0.0 - 1.0)
+ * FUNCTION: RIN_MemPool_UsageRatio
+ * Current usage ratio (0.0 - 1.0)
  * ============================================================================ */
 static inline float RIN_MemPool_UsageRatio(const RIN_MemPool* pool) {
     return pool ? (float)pool->offset / (float)pool->capacity : 0.0f;
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_MemPool_SaveMarker
- * Guarda posición actual para rollback
+ * FUNCTION: RIN_MemPool_SaveMarker
+ * Saves current position for rollback
  * ============================================================================ */
 static inline size_t RIN_MemPool_SaveMarker(const RIN_MemPool* pool) {
     return pool ? pool->offset : 0;
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_MemPool_Rollback
- * Rollback a posición guardada
+ * FUNCTION: RIN_MemPool_Rollback
+ * Rollback to saved position
  * ============================================================================ */
 static inline void RIN_MemPool_Rollback(RIN_MemPool* pool, size_t marker) {
     if (pool && marker <= pool->offset) {
@@ -175,15 +175,15 @@ static inline void RIN_MemPool_Rollback(RIN_MemPool* pool, size_t marker) {
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_MemoryArena_Init
- * Inicializa arena completa con 3 pools
+ * FUNCTION: RIN_MemoryArena_Init
+ * Initializes complete arena with 3 pools
  * 
- * @arena:              Puntero a arena
- * @inference_size:     Tamaño pool de inferencia
- * @scratch_size:       Tamaño pool scratch
- * @persistent_size:    Tamaño pool persistente
+ * @arena:              Pointer to arena
+ * @inference_size:     Inference pool size
+ * @scratch_size:       Scratch pool size
+ * @persistent_size:    Persistent pool size
  * 
- * Retorna: 0 si éxito, -1 si fallo (arena parcialmente inicializada)
+ * Returns: 0 on success, -1 on failure (partially initialized arena)
  * ============================================================================ */
 static inline int RIN_MemoryArena_Init(RIN_MemoryArena* arena,
                                         size_t inference_size,
@@ -208,8 +208,8 @@ static inline int RIN_MemoryArena_Init(RIN_MemoryArena* arena,
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_MemoryArena_ResetInference
- * Reset solo del pool de inferencia (conserva pesos)
+ * FUNCTION: RIN_MemoryArena_ResetInference
+ * Reset only the inference pool (keeps weights)
  * ============================================================================ */
 static inline void RIN_MemoryArena_ResetInference(RIN_MemoryArena* arena) {
     if (arena) {
@@ -219,8 +219,8 @@ static inline void RIN_MemoryArena_ResetInference(RIN_MemoryArena* arena) {
 }
 
 /* ============================================================================
- * FUNCIÓN: RIN_MemoryArena_Destroy
- * Limpieza completa de arena
+ * FUNCTION: RIN_MemoryArena_Destroy
+ * Complete arena cleanup
  * ============================================================================ */
 static inline void RIN_MemoryArena_Destroy(RIN_MemoryArena* arena) {
     if (arena) {
@@ -231,30 +231,30 @@ static inline void RIN_MemoryArena_Destroy(RIN_MemoryArena* arena) {
 }
 
 /* ============================================================================
- * MACROS DE CONVENIENCIA
+ * CONVENIENCE MACROS
  * ============================================================================ */
 
-/* Allocar un solo objeto de tipo T en pool de inferencia */
+/* Allocate a single object of type T in inference pool */
 #define RIN_ALLOC(arena, T) \
     ((T*)RIN_MemPool_Alloc(&(arena)->inference, sizeof(T), alignof(T)))
 
-/* Allocar array de N elementos de tipo T en pool de inferencia */
+/* Allocate array of N elements of type T in inference pool */
 #define RIN_ALLOC_ARRAY(arena, T, N) \
     ((T*)RIN_MemPool_Alloc(&(arena)->inference, sizeof(T) * (N), alignof(T)))
 
-/* Allocar array en pool scratch (temporal) */
+/* Allocate array in scratch pool (temporary) */
 #define RIN_SCRATCH_ALLOC(arena, T, N) \
     ((T*)RIN_MemPool_Alloc(&(arena)->scratch, sizeof(T) * (N), alignof(T)))
 
-/* Allocar array en pool persistente (pesos) */
+/* Allocate array in persistent pool (weights) */
 #define RIN_PERSIST_ALLOC(arena, T, N) \
     ((T*)RIN_MemPool_Alloc(&(arena)->persistent, sizeof(T) * (N), alignof(T)))
 
-/* Guardar marker y crear scope RAII-style */
+/* Save marker and create RAII-style scope */
 #define RIN_SCOPE_MARKER(arena, name) \
     size_t name = RIN_MemPool_SaveMarker(&(arena)->inference)
 
-/* Rollback al marker */
+/* Rollback to marker */
 #define RIN_SCOPE_ROLLBACK(arena, name) \
     RIN_MemPool_Rollback(&(arena)->inference, name)
 

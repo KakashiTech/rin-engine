@@ -13,16 +13,16 @@ static PyObject *RinException;
 /* ------------------------------------------------------------------ */
 typedef struct {
     PyObject_HEAD
-    ThorContext *ctx;
+    RinContext *ctx;
     int          closed;
 } PyRinContext;
 
 static int
 PyRinContext_init(PyRinContext *self, PyObject *args, PyObject *kwds)
 {
-    self->ctx = thor_create();
+    self->ctx = rin_create();
     if (!self->ctx) {
-        PyErr_SetString(RinException, "thor_create() returned NULL");
+        PyErr_SetString(RinException, "rin_create() returned NULL");
         return -1;
     }
     self->closed = 0;
@@ -33,7 +33,7 @@ static void
 PyRinContext_dealloc(PyRinContext *self)
 {
     if (self->ctx && !self->closed) {
-        thor_destroy(self->ctx);
+        rin_destroy(self->ctx);
     }
     self->ctx = NULL;
     Py_TYPE(self)->tp_free((PyObject *)self);
@@ -52,9 +52,9 @@ PyRinContext_load_model(PyRinContext *self, PyObject *arg)
     if (!PyArg_Parse(arg, "s", &path))
         return NULL;
 
-    ThorStatus st = thor_load_model(self->ctx, path);
-    if (st != THOR_OK) {
-        PyErr_Format(RinException, "thor_load_model(%s) failed: %d", path, st);
+    RinStatus st = rin_load_model(self->ctx, path);
+    if (st != RIN_STATUS_OK) {
+        PyErr_Format(RinException, "rin_load_model(%s) failed: %d", path, st);
         return NULL;
     }
     Py_RETURN_NONE;
@@ -64,15 +64,15 @@ PyRinContext_load_model(PyRinContext *self, PyObject *arg)
 static PyObject *
 PyRinContext_get_model_info(PyRinContext *self, PyObject *Py_UNUSED(ignored))
 {
-    ThorModelInfo info;
+    RinModelInfo info;
 
     if (self->closed || !self->ctx) {
         PyErr_SetString(RinException, "context is closed");
         return NULL;
     }
-    ThorStatus st = thor_get_model_info(self->ctx, &info);
-    if (st != THOR_OK) {
-        PyErr_Format(RinException, "thor_get_model_info failed: %d", st);
+    RinStatus st = rin_get_model_info(self->ctx, &info);
+    if (st != RIN_STATUS_OK) {
+        PyErr_Format(RinException, "rin_get_model_info failed: %d", st);
         return NULL;
     }
     return Py_BuildValue("{s:I,s:I,s:I,s:I,s:I,s:I,s:I,s:I,s:f}",
@@ -95,7 +95,7 @@ PyRinContext_get_mode(PyRinContext *self, void *closure)
     if (self->closed || !self->ctx) {
         Py_RETURN_NONE;
     }
-    return PyLong_FromLong((long)thor_get_mode(self->ctx));
+    return PyLong_FromLong((long)rin_get_mode(self->ctx));
 }
 
 static int
@@ -110,7 +110,7 @@ PyRinContext_set_mode(PyRinContext *self, PyObject *value, void *closure)
         PyErr_SetString(PyExc_TypeError, "mode must be an integer");
         return -1;
     }
-    thor_set_mode(self->ctx, (ThorMode)PyLong_AsLong(value));
+    rin_set_mode(self->ctx, (RinMode)PyLong_AsLong(value));
     return 0;
 }
 
@@ -121,7 +121,7 @@ PyRinContext_set_temperature(PyRinContext *self, PyObject *arg)
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
     float v = (float)PyFloat_AsDouble(arg);
     if (PyErr_Occurred()) return NULL;
-    thor_set_temperature(self->ctx, v);
+    rin_set_temperature(self->ctx, v);
     Py_RETURN_NONE;
 }
 
@@ -131,7 +131,7 @@ PyRinContext_set_top_k(PyRinContext *self, PyObject *arg)
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
     uint32_t v = (uint32_t)PyLong_AsLong(arg);
     if (PyErr_Occurred()) return NULL;
-    thor_set_top_k(self->ctx, v);
+    rin_set_top_k(self->ctx, v);
     Py_RETURN_NONE;
 }
 
@@ -141,7 +141,7 @@ PyRinContext_set_top_p(PyRinContext *self, PyObject *arg)
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
     float v = (float)PyFloat_AsDouble(arg);
     if (PyErr_Occurred()) return NULL;
-    thor_set_top_p(self->ctx, v);
+    rin_set_top_p(self->ctx, v);
     Py_RETURN_NONE;
 }
 
@@ -151,7 +151,7 @@ PyRinContext_set_power_budget(PyRinContext *self, PyObject *arg)
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
     float v = (float)PyFloat_AsDouble(arg);
     if (PyErr_Occurred()) return NULL;
-    thor_set_power_budget(self->ctx, v);
+    rin_set_power_budget(self->ctx, v);
     Py_RETURN_NONE;
 }
 
@@ -185,26 +185,26 @@ PyRinContext_infer(PyRinContext *self, PyObject *args, PyObject *kwds)
         ids[i] = (uint32_t)PyLong_AsLong(item);
     }
 
-    ThorResult result;
-    ThorStatus st = thor_infer(self->ctx, ids, (uint32_t)n, max_output, &result);
+    RinResult result;
+    RinStatus st = rin_infer(self->ctx, ids, (uint32_t)n, max_output, &result);
     PyMem_Free(ids);
 
-    if (st != THOR_OK) {
-        PyErr_Format(RinException, "thor_infer failed: %d", st);
+    if (st != RIN_STATUS_OK) {
+        PyErr_Format(RinException, "rin_infer failed: %d", st);
         return NULL;
     }
 
     /* build token list */
     PyObject *token_list = PyList_New((Py_ssize_t)result.num_tokens);
     if (!token_list) {
-        thor_free_result(&result);
+        rin_free_result(&result);
         return PyErr_NoMemory();
     }
     for (uint32_t i = 0; i < result.num_tokens; i++) {
         PyList_SET_ITEM(token_list, (Py_ssize_t)i,
                         PyLong_FromUnsignedLong(result.tokens[i]));
     }
-    thor_free_result(&result);
+    rin_free_result(&result);
 
     return Py_BuildValue("{s:O,s:I,s:d,s:f,s:K}",
         "tokens",            token_list,
@@ -231,10 +231,10 @@ PyRinContext_encode(PyRinContext *self, PyObject *arg)
     uint32_t *ids = (uint32_t *)PyMem_Malloc((size_t)max_ids * sizeof(uint32_t));
     if (!ids) return PyErr_NoMemory();
 
-    int n = thor_encode(self->ctx, text, ids, max_ids);
+    int n = rin_encode(self->ctx, text, ids, max_ids);
     if (n < 0) {
         PyMem_Free(ids);
-        PyErr_Format(RinException, "thor_encode failed: %d", n);
+        PyErr_Format(RinException, "rin_encode failed: %d", n);
         return NULL;
     }
 
@@ -278,7 +278,7 @@ PyRinContext_decode(PyRinContext *self, PyObject *arg)
     char *buf = (char *)PyMem_Malloc((size_t)max_text);
     if (!buf) { PyMem_Free(ids); return PyErr_NoMemory(); }
 
-    thor_decode(self->ctx, ids, (int)n, buf, max_text);
+    rin_decode(self->ctx, ids, (int)n, buf, max_text);
     PyMem_Free(ids);
 
     PyObject *result = PyUnicode_FromString(buf);
@@ -295,9 +295,9 @@ PyRinContext_get_charset(PyRinContext *self, PyObject *Py_UNUSED(ignored))
         return NULL;
     }
     int vocab_size = 0;
-    const char *charset = thor_get_charset(self->ctx, &vocab_size);
+    const char *charset = rin_get_charset(self->ctx, &vocab_size);
     if (!charset) {
-        PyErr_SetString(RinException, "thor_get_charset returned NULL");
+        PyErr_SetString(RinException, "rin_get_charset returned NULL");
         return NULL;
     }
     return PyUnicode_FromString(charset);
@@ -309,7 +309,7 @@ PyRinContext_get_energy_joules(PyRinContext *self, void *closure)
 {
     (void)closure;
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
-    return PyFloat_FromDouble(thor_get_energy_joules(self->ctx));
+    return PyFloat_FromDouble(rin_get_energy_joules(self->ctx));
 }
 
 static PyObject *
@@ -317,7 +317,7 @@ PyRinContext_get_energy_millijoules(PyRinContext *self, void *closure)
 {
     (void)closure;
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
-    return PyFloat_FromDouble(thor_get_energy_millijoules(self->ctx));
+    return PyFloat_FromDouble(rin_get_energy_millijoules(self->ctx));
 }
 
 static PyObject *
@@ -325,7 +325,7 @@ PyRinContext_get_inference_count(PyRinContext *self, void *closure)
 {
     (void)closure;
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
-    return PyLong_FromUnsignedLongLong(thor_get_inference_count(self->ctx));
+    return PyLong_FromUnsignedLongLong(rin_get_inference_count(self->ctx));
 }
 
 static PyObject *
@@ -333,7 +333,7 @@ PyRinContext_get_total_tokens(PyRinContext *self, void *closure)
 {
     (void)closure;
     if (self->closed || !self->ctx) { Py_RETURN_NONE; }
-    return PyLong_FromUnsignedLongLong(thor_get_total_tokens(self->ctx));
+    return PyLong_FromUnsignedLongLong(rin_get_total_tokens(self->ctx));
 }
 
 /* profile(self, mode, warmup, iterations) -> (ms/tok, tok/s) */
@@ -353,11 +353,11 @@ PyRinContext_profile(PyRinContext *self, PyObject *args, PyObject *kwds)
         return NULL;
 
     double ms_per_tok, toks_per_sec;
-    ThorStatus st = thor_profile(
-        self->ctx, (ThorMode)mode, warmup, iterations,
+    RinStatus st = rin_profile(
+        self->ctx, (RinMode)mode, warmup, iterations,
         &ms_per_tok, &toks_per_sec);
-    if (st != THOR_OK) {
-        PyErr_Format(RinException, "thor_profile failed: %d", st);
+    if (st != RIN_STATUS_OK) {
+        PyErr_Format(RinException, "rin_profile failed: %d", st);
         return NULL;
     }
     return Py_BuildValue("(dd)", ms_per_tok, toks_per_sec);
@@ -368,7 +368,7 @@ static PyObject *
 PyRinContext_close(PyRinContext *self, PyObject *Py_UNUSED(ignored))
 {
     if (self->ctx && !self->closed) {
-        thor_destroy(self->ctx);
+        rin_destroy(self->ctx);
     }
     self->ctx = NULL;
     self->closed = 1;
@@ -458,7 +458,7 @@ static PyObject *
 module_version(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     (void)self;
-    return PyUnicode_FromString(thor_version());
+    return PyUnicode_FromString(rin_version());
 }
 
 static PyObject *
@@ -466,7 +466,7 @@ module_version_numbers(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     (void)self;
     uint32_t major, minor, patch;
-    thor_version_numbers(&major, &minor, &patch);
+    rin_version_numbers(&major, &minor, &patch);
     return Py_BuildValue("(III)", major, minor, patch);
 }
 
@@ -481,14 +481,14 @@ static PyObject *
 module_neon_available(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     (void)self;
-    return PyBool_FromLong((long)thor_neon_available());
+    return PyBool_FromLong((long)rin_neon_available());
 }
 
 static PyObject *
 module_wasm_available(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     (void)self;
-    return PyBool_FromLong((long)thor_wasm_available());
+    return PyBool_FromLong((long)rin_wasm_available());
 }
 
 static PyMethodDef module_methods[] = {

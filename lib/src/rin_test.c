@@ -2,11 +2,11 @@
  * rin_test.c - Programa de Test del Sistema RIN
  * 
  * Valida todas las fases del sistema:
- * - FASE 1: Arena allocator + DPTM
- * - FASE 2: LIF engine + PTsoftmax + BSPN
- * - FASE 3: DCT engine + Phase Gating
- * - FASE 4: Betti calculator + Mechanistic distillation
- * - FASE 5: Energy meter + Test suite
+ * - PHASE 1: Arena allocator + DPTM
+ * - PHASE 2: LIF engine + PTsoftmax + BSPN
+ * - PHASE 3: DCT engine + Phase Gating
+ * - PHASE 4: Betti calculator + Mechanistic distillation
+ * - PHASE 5: Energy meter + Test suite
  */
 
 #include <stdio.h>
@@ -17,7 +17,7 @@
 #include "rin_core.h"
 
 /* ============================================================================
- * FLAGS DE TEST
+ * TEST FLAGS
  * ============================================================================ */
 typedef struct {
     int test_all;
@@ -117,7 +117,7 @@ static int test_lif_engine(void) {
     RIN_MemoryArena arena;
     RIN_MemoryArena_Init(&arena, 1024*1024, 512*1024, 512*1024);
     
-    /* Parámetros que permiten disparo real
+    /* Parameters that allow real firing
      * Con decay_shift=3 (leak=v/8), input_shift=2 (input/4),
      * threshold=4000, weight=1.0 (Q15_ONE=32767):
      *   t0: v=0+8192=8192, >=4000 -> SPIKE! (reset to 0)
@@ -422,7 +422,7 @@ static int test_core_api(void) {
     config.arena_size_mb = 16;
     config.enable_energy_monitoring = false;
     
-    RIN_Status status = RIN_Init(&ctx, &config);
+    RinStatus status = RIN_Init(&ctx, &config);
     
     if (status != RIN_STATUS_OK) {
         printf("FAIL (init: %s)\n", RIN_ErrorString(status));
@@ -454,7 +454,7 @@ static int test_core_api(void) {
 }
 
 /* ============================================================================
- * TEST SUITE COMPLETA
+ * COMPLETE TEST SUITE
  * ============================================================================ */
 
 static int run_all_tests(TestFlags* flags) {
@@ -464,32 +464,32 @@ static int run_all_tests(TestFlags* flags) {
     printf("  RIN UNIT TEST SUITE                  \n");
     printf("========================================\n\n");
     
-    /* FASE 1: Infraestructura */
+    /* PHASE 1: Infrastructure */
     printf("--- FASE 1: Infrastructure ---\n");
     if (test_arena_allocator() != 0) failures++;
     if (test_dptm() != 0) failures++;
     
-    /* FASE 2: Motor de Impulsos */
+    /* PHASE 2: Impulse Engine */
     printf("--- FASE 2: Impulse Engine ---\n");
     if (test_lif_engine() != 0) failures++;
     if (test_ptsoftmax() != 0) failures++;
     if (test_bspn() != 0) failures++;
     
-    /* FASE 3: Resonancia Espectral */
+    /* PHASE 3: Spectral Resonance */
     printf("--- FASE 3: Spectral Resonance ---\n");
     if (test_dct_engine() != 0) failures++;
     if (test_phase_gating() != 0) failures++;
     
-    /* FASE 4: Destilación Topológica */
+    /* PHASE 4: Topological Distillation */
     printf("--- FASE 4: Topological Distillation ---\n");
     if (test_betti_calculator() != 0) failures++;
     if (test_distillation() != 0) failures++;
     
-    /* FASE 5: Validación */
+    /* PHASE 5: Validation */
     printf("--- FASE 5: Validation ---\n");
     if (test_energy_meter() != 0) failures++;
     
-    /* Integración */
+    /* Integration */
     printf("--- Integration ---\n");
     if (test_core_api() != 0) failures++;
     
@@ -501,7 +501,7 @@ static int run_all_tests(TestFlags* flags) {
 }
 
 /* ============================================================================
- * BENCHMARK DE ENERGÍA
+ * ENERGY BENCHMARK
  * ============================================================================ */
 
 static int run_energy_benchmark(TestFlags* flags) {
@@ -516,7 +516,7 @@ static int run_energy_benchmark(TestFlags* flags) {
         return -1;
     }
     
-    /* Benchmark: simular trabajo de inferencia */
+    /* Benchmark: simulate inference workload */
     uint32_t iterations = 10000000;
     
     RIN_EnergyMeasurement meas;
